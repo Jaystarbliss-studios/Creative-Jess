@@ -1,6 +1,6 @@
 # Pilot Source Review: PhotoCraft, VectorCraft, DesignCraft
 
-Reviewed public README, Cargo workspace manifest, and documented control/MCP protocol files on 2026-10-11. This is a documentation/manifest review only; no upstream checkout was built or run from this integration repository.
+Reviewed public README, Cargo workspace manifest, and documented control/MCP protocol files on 2026-10-11. The source-review notes are documentation/manifest evidence; separate Windows CI run `38162282458` subsequently built PhotoCraft and VectorCraft desktop/CLI targets and verified their real MCP initialize/tools-list responses. No actual file-edit/save/export operation has yet been verified.
 
 ## Findings
 
@@ -16,7 +16,7 @@ PhotoCraft and VectorCraft manifests both pin `craft-ui` from `storytold/craft-l
 
 ## Implementation status in the integration shell
 
-A generic local MCP subprocess broker has since been added to the integration branch. It starts configured CLI executables with fixed `mcp` arguments, performs MCP initialization, discovers the live `tools/list` catalog, validates tool names and a bounded JSON-schema subset, and forwards `tools/call` requests over stdio. Cloud and Ollama-compatible local AI can propose one discovered tool call, but execution remains behind an explicit user approval step. Automated CI uses a fake MCP CLI to test the protocol; **this does not mean PhotoCraft, VectorCraft, or DesignCraft themselves have been built or tested**.
+A generic local MCP subprocess broker has since been added to the integration branch. It starts configured CLI executables with fixed `mcp` arguments, performs MCP initialization, discovers the live `tools/list` catalog, validates tool names and a bounded JSON-schema subset, and forwards `tools/call` requests over stdio. Cloud and Ollama-compatible local AI can propose one discovered tool call, but execution remains behind an explicit user approval step. Automated CI uses a fake MCP CLI for deterministic broker tests. Separately, Windows CI run `38162282458` built PhotoCraft and VectorCraft and verified real MCP tool discovery; **this still does not prove real editing/export workflows, and DesignCraft remains unverified until its build and protocol checks finish**.
 
 ## Recommended integration shape
 
@@ -32,4 +32,4 @@ A generic local MCP subprocess broker has since been added to the integration br
 - PhotoCraft: `Cargo.toml` declares version 0.7.0, edition 2024, Rust 1.95, and `MIT OR Apache-2.0`; `docs/control-protocol.md` documents token authentication and file-root flags; `docs/mcp.md` documents headless and bridge MCP modes.
 - VectorCraft: `Cargo.toml` declares version 0.9.0, edition 2024, Rust 1.95, and `MIT OR Apache-2.0`; `docs/control-protocol.md` explicitly says the control port has no authentication; `docs/mcp.md` documents a stdio MCP server with headless and connected modes.
 - DesignCraft: `docs/control-protocol.md` documents loopback JSON control and says the control port has no authentication; `docs/mcp.md` documents a stdio MCP server with headless and connected modes. The manifest and exact version still need to be recorded.
-- This review does not verify that any command builds on Windows, that an installed CLI exists, or that real editing/export operations pass. Keep all three at their existing unverified integration status until those tests are run.
+- The initial review itself does not establish build results. PhotoCraft and VectorCraft now have recorded Windows build and MCP discovery evidence, but should remain short of integrated_verified until a real create/open/edit/save/export workflow passes. DesignCraft remains unverified until its separate build and protocol check passes.

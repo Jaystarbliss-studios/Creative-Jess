@@ -41,7 +41,7 @@ GitHub Actions on the integration branch runs TypeScript checking, adapter/compa
 
 ## Security notes
 
-The AI endpoint has a same-origin check and a basic in-memory per-IP rate limit. These are not a substitute for user authentication. Before exposing the web service publicly, deploy it behind appropriate authentication or an access-controlled hosting layer. Cloud API keys must remain server-side. The AI assistant can only propose launching a configured app; the user must approve the proposal and the paired local companion must authorize the app ID. It cannot edit project files or run arbitrary commands.
+The AI endpoint has a same-origin check and a basic in-memory per-IP rate limit. These are not a substitute for user authentication. Before exposing the web service publicly, deploy it behind appropriate authentication or an access-controlled hosting layer. Cloud API keys must remain server-side. The AI assistant can propose launching a configured app or invoking a discovered MCP tool; the user must approve each proposal and the paired local companion must validate the app/tool ID and arguments. It cannot run arbitrary shell commands. Child processes receive an allowlisted operating-system environment rather than the companion's full environment, so provider API keys are not inherited.
 
 Run npm run companion on the machine where native applications are installed. On Windows PowerShell, configure actual installed executable paths. These examples are illustrative; replace paths with the files installed on your machine:
 

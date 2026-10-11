@@ -10,7 +10,7 @@ Last updated: 2026-10-11
 - Upstream catalog size: 21 repositories.
 - GitHub repository metadata checked for all 21 catalog entries; see REPOSITORY_DISCOVERY.md. This is metadata discovery only, not source inspection.
 - Upstream repositories built and smoke-tested from this workspace: 0 verified by this audit.
-- Local companion: loopback-only Node/Express launcher added; its health/auth rejection smoke test passes in CI. It launches only explicitly configured executables and is not an editor API.
+- Local companion: loopback-only Node/Express service supports configured executable launches plus a persistent stdio MCP broker for configured CLI paths. CI covers health/pairing rejection, MCP tool discovery, schema validation, and the frontend build. The broker has not yet been tested against real upstream CLI binaries.
 - File import: Project Browser uses IndexedDB to store real selected file bytes and localStorage for project metadata. Download of imported originals is implemented. Suggested app mappings do not imply format compatibility.
 - Cloud AI route: server-side Gemini route added; requires GEMINI_API_KEY and a protected deployment.
 - Local AI: Ollama-compatible browser request can be attempted, but success depends on the local runtime and browser network policy.
@@ -19,7 +19,7 @@ Last updated: 2026-10-11
 
 The earlier catalog contained specific versions, licenses, crate counts, file formats, and statements such as “integrated and verified” without supporting build logs or test evidence in this repository. Catalog metadata has been made conservative until each upstream repository is audited. GitHub metadata reports no SPDX license for artcraftx and craft-repo-status-app and reports NOASSERTION for artcraft-services; resolve these before redistribution/reuse. ArtCraft and ArtCraft Services report unusually large repository sizes, so inspect manifests and asset/LFS/history structure before a full clone.
 
-The integration shell now includes a typed adapter registry. It fails closed when an app adapter or capability is missing, validates arguments when a validator is supplied, checks adapter health before execution, and validates result shape. Its automated tests pass. The local companion can launch configured native application processes using a fixed open-app command and app-ID-to-path mapping. No editing/automation adapters are registered yet.
+The integration shell now includes a typed adapter registry. It fails closed when an app adapter or capability is missing, validates arguments when a validator is supplied, checks adapter health before execution, and validates result shape. The companion can launch configured apps using a fixed open-app command and can discover/call tools from configured MCP CLI processes using JSON-RPC over stdio. AI can propose these tool calls, but the user must approve each proposal. No real upstream CLI has yet been configured and smoke-tested in this workspace.
 
 ## Status definitions
 
@@ -68,7 +68,7 @@ A UI preview, mocked result, screenshot, or successful TypeScript compilation is
 3. Verify navigation, themes, keyboard access, responsive layout, project state, and honest status labels.
 4. Implement typed adapter capabilities, health checks, validated inputs, timeouts, cancellation, and normalized errors.
 5. Choose pilot integrations from real source and build results, not from names.
-6. Implement secure local pairing, origin checks, capability allowlists, structured arguments, and operation confirmation.
+6. Extend secure local pairing, origin checks, capability allowlists, structured arguments, and operation confirmation; the current companion enforces these boundaries for app launches and MCP calls.
 7. Verify cloud and local provider connections; protect public AI routes with authentication.
 8. Expose only documented, tested application operations to AI.
 9. Integrate remaining apps in dependency-aware order with per-app acceptance tests.

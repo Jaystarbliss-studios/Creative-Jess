@@ -14,6 +14,10 @@ Reviewed public README, Cargo workspace manifest, and documented control/MCP pro
 
 PhotoCraft and VectorCraft manifests both pin `craft-ui` from `storytold/craft-libs` at Git revision `5c874d51eeb3de70e735c8ce87a59a7dedd47675`, and both use Cargo workspace resolver 3, edition 2024, Rust 1.95, and a `wasm-release` profile. The shared dependency pin should be kept consistent in the first pilot. Do not upgrade one app's UI dependency in isolation without testing the other app and the shared crate.
 
+## Implementation status in the integration shell
+
+A generic local MCP subprocess broker has since been added to the integration branch. It starts configured CLI executables with fixed `mcp` arguments, performs MCP initialization, discovers the live `tools/list` catalog, validates tool names and a bounded JSON-schema subset, and forwards `tools/call` requests over stdio. Cloud and Ollama-compatible local AI can propose one discovered tool call, but execution remains behind an explicit user approval step. Automated CI uses a fake MCP CLI to test the protocol; **this does not mean PhotoCraft, VectorCraft, or DesignCraft themselves have been built or tested**.
+
 ## Recommended integration shape
 
 1. **Use the local companion as a broker, not as a generic shell.** It should start only a configured, absolute CLI path with a fixed argument set. The browser must never supply a process path or arbitrary command-line arguments.

@@ -43,3 +43,14 @@ test('repositories with unresolved redistribution/security blockers stay blocked
     assert.equal(app.status, 'blocked', id + ' must remain blocked until license/security review is resolved');
   }
 });
+
+test('support libraries with passing Windows workspace CI are build_passed only', () => {
+  for (const id of ['craft-fonts', 'craft-libs']) {
+    const app = CRAFT_APPS.find((candidate) => candidate.id === id);
+    assert.ok(app, 'missing catalog entry for ' + id);
+    assert.equal(app.status, 'build_passed', id + ' must match its successful workspace build');
+    assert.equal(app.hasDesktop, false, id + ' is a support library, not a verified desktop app');
+    assert.equal(app.hasCli, false, id + ' is not a verified CLI integration');
+    assert.equal(app.hasMcp, false, id + ' is not a verified MCP integration');
+  }
+});

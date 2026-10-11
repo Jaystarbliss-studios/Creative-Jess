@@ -47,7 +47,7 @@ A UI preview, mocked result, screenshot, or successful TypeScript compilation is
 | artcraft-services | not_inspected | audit API, auth, deployment, secrets, dependencies, and license |
 | vectorcraft | smoke_test_passed | 32 MCP tools; read-only command_list call succeeded; SVG round trip still pending |
 | craft-launcher | not_inspected | inspect launcher/update behavior and security boundaries |
-| craft-fonts | not_inspected | inspect font catalog, font licenses, distribution constraints |
+| craft-fonts | build_passed | Windows workspace tests and release build passed; review each font's license/attribution before redistribution |
 | cadcraft | build_passed | 11 MCP tools discovered; no zero-argument read-only call available in smoke test; drawing/export acceptance pending |
 | wordcraft | smoke_test_passed | 16 MCP tools; read-only list_commands call succeeded; document create/edit/export acceptance pending |
 | soundcraft | build_passed | 17 MCP tools discovered; no zero-argument read-only call available in smoke test; audio/session acceptance pending |
@@ -55,7 +55,7 @@ A UI preview, mocked result, screenshot, or successful TypeScript compilation is
 | designcraft | smoke_test_passed | 25 MCP tools; read-only list_commands call succeeded; document create/edit/export acceptance pending |
 | effectcraft | smoke_test_passed | 27 MCP tools; read-only list_commands call succeeded; composition/render acceptance still pending |
 | deckcraft | smoke_test_passed | 25 MCP tools; read-only list_commands call succeeded; presentation create/edit/export acceptance pending |
-| craft-libs | not_inspected | inspect public APIs, dependency compatibility, license |
+| craft-libs | build_passed | Windows workspace tests and release build passed; consuming-app compatibility remains unverified |
 | gridcraft | smoke_test_passed | 21 MCP tools; read-only list_commands call succeeded; workbook/formula/export acceptance pending |
 | craft-repo-status-app | not_inspected | inspect repository diagnostics and automation interface |
 | photocraft-corpus | not_inspected | inspect asset provenance, license, and fixture conventions |

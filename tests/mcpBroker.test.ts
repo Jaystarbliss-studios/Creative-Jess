@@ -28,7 +28,7 @@ rl.on('line', (line) => {
   await chmod(executable, 0o755);
   const previousKey = process.env.GEMINI_API_KEY;
   process.env.GEMINI_API_KEY = 'test-secret-must-not-be-inherited';
-  const broker = new McpBroker({ testapp: executable, scopedapp: executable }, { scopedapp: { readRoot: directory, writeRoot: directory } });
+  const broker = new McpBroker({ testapp: executable, scopedapp: executable, configuredapp: executable }, { scopedapp: { readRoot: directory, writeRoot: directory } }, { configuredapp: ['--root', directory] });
   try {
     const tools = await broker.listTools('testapp');
     const toolsAgain = await broker.listTools('testapp');
@@ -38,6 +38,8 @@ rl.on('line', (line) => {
     assert.equal(tools.length, 1);
     assert.equal(tools[0].name, 'echo');
     assert.equal(tools[0].description, 'clean|mcp', 'default invocation uses only the documented MCP subcommand and must not inherit provider credentials');
+    const configuredTools = await broker.listTools('configuredapp');
+    assert.equal(configuredTools[0].description, 'clean|mcp|--root|' + directory, 'per-app CLI arguments come from local configuration and are passed without a shell');
     const scopedTools = await broker.listTools('scopedapp');
     assert.equal(scopedTools[0].description, 'clean|mcp|--automation-read-root|' + directory + '|--automation-write-root|' + directory, 'scoped roots are passed only to the app explicitly configured for them');
     const response = await broker.callTool('testapp', 'echo', { text: 'hello' });

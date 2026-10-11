@@ -70,7 +70,24 @@ function readMcpScopedRoots(): Record<string, { readRoot?: string; writeRoot?: s
     return {};
   }
 }
-const mcpBroker = new McpBroker(readMcpPaths(), readMcpScopedRoots());
+function readMcpExtraArgs(): Record<string, string[]> {
+  const raw = process.env.CRAFT_MCP_EXTRA_ARGS_JSON;
+  if (!raw) return {};
+  try {
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    const result: Record<string, string[]> = {};
+    for (const [appId, candidate] of Object.entries(parsed)) {
+      if (!/^[a-z0-9-]+$/.test(appId) || !Array.isArray(candidate) || candidate.length > 16) continue;
+      const args = candidate.filter((value): value is string => typeof value === 'string' && value.length <= 1024 && !/[\u0000-\u001F\u007F]/.test(value));
+      if (args.length === candidate.length) result[appId] = args;
+    }
+    return result;
+  } catch {
+    console.error('CRAFT_MCP_EXTRA_ARGS_JSON is invalid JSON. No extra CLI arguments were registered.');
+    return {};
+  }
+}
+const mcpBroker = new McpBroker(readMcpPaths(), readMcpScopedRoots(), readMcpExtraArgs());
 const allowedOrigins = new Set(
   (process.env.CRAFT_WORKSPACE_ORIGINS || 'http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173')
     .split(',')

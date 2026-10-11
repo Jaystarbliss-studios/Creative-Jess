@@ -48,6 +48,7 @@ Run npm run companion on the machine where native applications are installed. On
     $env:CRAFT_APP_PATHS_JSON='{"photocraft":"C:\\Program Files\\PhotoCraft\\photocraft.exe"}'
     $env:CRAFT_MCP_PATHS_JSON='{"photocraft":"C:\\Program Files\\PhotoCraft\\photocraft-cli.exe","vectorcraft":"C:\\Program Files\\VectorCraft\\vectorcraft-cli.exe","designcraft":"C:\\Program Files\\DesignCraft\\designcraft-cli.exe"}'
     $env:CRAFT_MCP_SCOPED_ROOTS_JSON='{"photocraft":{"readRoot":"C:\\Users\\you\\Documents\\CraftProjects","writeRoot":"C:\\Users\\you\\Documents\\CraftProjects\\exports"},"vectorcraft":{"readRoot":"C:\\Users\\you\\Documents\\CraftProjects","writeRoot":"C:\\Users\\you\\Documents\\CraftProjects\\exports"}}'
+    $env:CRAFT_MCP_EXTRA_ARGS_JSON='{"pdfcraft":["--root","C:\\Users\\you\\Documents\\CraftProjects"]}'
     $env:CRAFT_WORKSPACE_ORIGINS='http://localhost:3000'
     npm run companion
 

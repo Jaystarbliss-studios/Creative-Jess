@@ -120,10 +120,11 @@ class McpSession {
 }
 
 export type McpScopedRoots = Record<string, { readRoot?: string; writeRoot?: string }>;
+export type McpExtraArgs = Record<string, string[]>;
 
 export class McpBroker {
   private readonly sessions = new Map<string, McpSession>();
-  constructor(private readonly paths: Record<string, string>, private readonly scopedRoots: McpScopedRoots = {}) {}
+  constructor(private readonly paths: Record<string, string>, private readonly scopedRoots: McpScopedRoots = {}, private readonly extraArgs: McpExtraArgs = {}) {}
   configuredApps() { return Object.keys(this.paths); }
   private async session(appId: string) {
     if (!Object.prototype.hasOwnProperty.call(this.paths, appId)) throw new Error('No MCP CLI is configured for this application.');
@@ -135,7 +136,7 @@ export class McpBroker {
     const executable = this.paths[appId];
     await access(executable);
     // Scope flags are opt-in per app because upstream CLI contracts differ.
-    const args = ['mcp'];
+    const args = ['mcp', ...(this.extraArgs[appId] || [])];
     const roots = this.scopedRoots[appId];
     for (const [kind, root] of [['read', roots?.readRoot], ['write', roots?.writeRoot]] as const) {
       if (!root) continue;

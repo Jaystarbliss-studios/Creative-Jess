@@ -117,6 +117,7 @@ jobs:
           $smokeArgs = @('--binary', $binary)
           if ($env:INCLUDE_ROOT_FLAGS -eq 'true') { $smokeArgs += '--scoped-roots' }
           if ('${{ matrix.repository }}' -eq 'wordcraft') { $smokeArgs += @('--acceptance', 'wordcraft') }
+          if ('${{ matrix.repository }}' -eq 'gridcraft') { $smokeArgs += @('--acceptance', 'gridcraft') }
           node scripts/smoke-mcp.mjs @smokeArgs 2>&1 | Tee-Object -FilePath $logFile -Append
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Upload build metadata and logs

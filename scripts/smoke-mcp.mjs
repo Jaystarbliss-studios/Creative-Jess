@@ -87,26 +87,37 @@ try {
   }
   let acceptanceResult = null;
   if (acceptance) {
-    if (acceptance !== 'wordcraft') throw new Error('Unsupported acceptance scenario: ' + acceptance);
-    const availableNames = new Set(catalog.tools.map((tool) => tool.name));
-    for (const required of ['new_document', 'type_text', 'get_text', 'save_document']) {
-      if (!availableNames.has(required)) throw new Error('WordCraft acceptance scenario requires MCP tool ' + required + '.');
-    }
     const callTool = async (name, args) => {
+      if (!catalog.tools.some((tool) => tool && tool.name === name)) throw new Error('Acceptance scenario requires MCP tool ' + name + '.');
       const result = await request('tools/call', { name, arguments: args });
       if (result.isError === true) throw new Error('Acceptance tool call failed: ' + name + ' ' + JSON.stringify(result.content || []));
       return (result.content || []).map((item) => typeof item.text === 'string' ? item.text : '').join('\\n');
     };
-    const marker = 'Creative Jess WordCraft acceptance ' + Date.now();
-    await callTool('new_document', { template: 'blank' });
-    await callTool('type_text', { text: marker });
-    const readBack = await callTool('get_text', {});
-    if (!readBack.includes(marker)) throw new Error('WordCraft acceptance failed: typed text was not returned by get_text.');
-    const outputPath = path.join(temp, 'creative-jess-acceptance.md');
-    await callTool('save_document', { path: outputPath });
-    const savedText = await readFile(outputPath, 'utf8');
-    if (!savedText.includes(marker)) throw new Error('WordCraft acceptance failed: saved Markdown does not contain the typed text.');
-    acceptanceResult = { scenario: 'wordcraft-create-type-read-save-markdown', verified: true, outputFormat: 'md', outputInsideTemporaryDirectory: true };
+    if (acceptance === 'wordcraft') {
+      const marker = 'Creative Jess WordCraft acceptance ' + Date.now();
+      await callTool('new_document', { template: 'blank' });
+      await callTool('type_text', { text: marker });
+      const readBack = await callTool('get_text', {});
+      if (!readBack.includes(marker)) throw new Error('WordCraft acceptance failed: typed text was not returned by get_text.');
+      const outputPath = path.join(temp, 'creative-jess-acceptance.md');
+      await callTool('save_document', { path: outputPath });
+      const savedText = await readFile(outputPath, 'utf8');
+      if (!savedText.includes(marker)) throw new Error('WordCraft acceptance failed: saved Markdown does not contain the typed text.');
+      acceptanceResult = { scenario: 'wordcraft-create-type-read-save-markdown', verified: true, outputFormat: 'md', outputInsideTemporaryDirectory: true };
+    } else if (acceptance === 'gridcraft') {
+      const marker = 'CreativeJessGridAcceptance' + Date.now();
+      await callTool('new_workbook', {});
+      await callTool('write_range', { range: 'A1', values: [[marker]] });
+      const readBack = await callTool('get_cell', { cell: 'A1' });
+      if (!readBack.includes(marker)) throw new Error('GridCraft acceptance failed: cell A1 did not return the written marker.');
+      const outputPath = path.join(temp, 'creative-jess-acceptance.csv');
+      await callTool('save_workbook', { path: outputPath });
+      const savedText = await readFile(outputPath, 'utf8');
+      if (!savedText.includes(marker)) throw new Error('GridCraft acceptance failed: saved CSV does not contain the cell marker.');
+      acceptanceResult = { scenario: 'gridcraft-create-write-read-save-csv', verified: true, outputFormat: 'csv', outputInsideTemporaryDirectory: true };
+    } else {
+      throw new Error('Unsupported acceptance scenario: ' + acceptance);
+    }
   }
   console.log(JSON.stringify({ ok: true, serverInfo: init.serverInfo, protocolVersion: init.protocolVersion, toolCount: catalog.tools.length, firstTools: catalog.tools.slice(0, 8).map((tool) => tool.name), readOnlyToolCall, scopedRootFlagsPassed: supportsRoots, acceptance: acceptanceResult }));
   child.stdin.end();

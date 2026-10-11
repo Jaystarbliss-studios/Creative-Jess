@@ -4,7 +4,7 @@ Craft Workspace is the integration shell for the Storytold Craft repository ecos
 
 ## Important implementation status
 
-This repository contains a React/Vite workspace and a catalog of 21 upstream repository records. The catalog and workspace previews do not mean the upstream applications are fully integrated. Eleven native creative applications have passed Windows desktop/CLI builds and real MCP tool discovery in GitHub Actions: PhotoCraft, VectorCraft, LightCraft, FilmCraft, EffectCraft, SoundCraft, WordCraft, DesignCraft, DeckCraft, CADCraft, and GridCraft. Read-only MCP calls passed for nine of those apps; CADCraft and SoundCraft advertised no eligible zero-argument read-only tool in the current smoke test. Full create/edit/save/export acceptance and browser parity remain incomplete. A separate loopback-only companion is implemented for launching configured native executables and connecting to configured MCP CLIs.
+This repository contains a React/Vite workspace and a catalog of 21 upstream repository records. The catalog and workspace previews do not mean the upstream applications are fully integrated. Twelve native creative applications have passed Windows desktop/CLI builds and real MCP tool discovery in GitHub Actions: PhotoCraft, VectorCraft, LightCraft, FilmCraft, EffectCraft, SoundCraft, WordCraft, DesignCraft, DeckCraft, CADCraft, and GridCraft. Read-only MCP calls passed for nine of those apps; CADCraft and SoundCraft advertised no eligible zero-argument read-only tool in the current smoke test. Full create/edit/save/export acceptance and browser parity remain incomplete. A separate loopback-only companion is implemented for launching configured native executables and connecting to configured MCP CLIs.
 
 The latest completed expanded CI runs verified desktop/CLI builds and real MCP catalogs for the apps listed above. Tool counts ranged from 11 (CADCraft) to 326 (LightCraft). A new acceptance-test pass is being added for PhotoCraft PNG export, VectorCraft SVG export, WordCraft Markdown save, GridCraft CSV save, and DeckCraft PPTX export; those scenarios are not considered passed until their workflow jobs complete successfully.
 
@@ -39,7 +39,7 @@ Use a supported Node.js release for the installed Vite version.
 4. Run npm run verify before pushing; it performs TypeScript checking, the automated safety tests, and a production frontend build.
 5. For production, build the frontend and run npm start with NODE_ENV=production.
 
-GitHub Actions on the integration branch runs TypeScript checking, adapter/companion safety tests, registry-status checks, a production frontend build, PowerShell parser validation, and a Windows upstream pilot for 12 native creative applications. Completed expanded runs have passed build/MCP discovery for 11 apps so far; PDFCraft is still pending. The latest commit also adds five real create/export acceptance scenarios, so check Actions for that exact head before treating the new scenarios as passing.
+GitHub Actions on the integration branch runs TypeScript checking, adapter/companion safety tests, registry-status checks, a production frontend build, PowerShell parser validation, and a Windows upstream pilot for 12 native creative applications. Completed expanded run `38165237565` passed build/MCP discovery for all 12 apps, including PDFCraft. The latest commit adds five real create/export acceptance scenarios; the corresponding full workflow is queued, so do not count those scenarios as passing until their jobs finish.
 
 ## Security notes
 

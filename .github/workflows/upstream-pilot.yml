@@ -71,5 +71,4 @@ jobs:
           name: upstream-${{ matrix.repository }}-verification
           path: |
             .upstream/${{ matrix.repository }}/cargo-metadata.json
-            .upstream/${{ matrix.repository }}/target/release
           if-no-files-found: warn

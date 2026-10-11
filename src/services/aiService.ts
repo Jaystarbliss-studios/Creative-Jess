@@ -101,7 +101,7 @@ class AIService {
   }
 
   public setLocalEndpoint(url: string) {
-    this.config.localEndpoint = url.trim().replace(/\\/+$/, '');
+    this.config.localEndpoint = url.trim().replace(/\/+$/, '');
     this.persistPreferences();
     this.listeners.forEach(cb => cb({ ...this.config }));
   }

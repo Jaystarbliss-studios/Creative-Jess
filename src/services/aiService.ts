@@ -160,7 +160,7 @@ class AIService {
             messages: [{ role: 'user', content: 'Project: ' + activeProjectName + '. Active application: ' + activeAppName + '. You may propose one supplied tool call when useful. Never claim an action happened before explicit user approval. User request: ' + prompt }],
             tools: [
               { type: 'function', function: { name: 'open_application', description: 'Propose launching a configured native application. Does not open a file or edit content.', parameters: { type: 'object', properties: { appId: { type: 'string', enum: ['artcraft', 'photocraft', 'artcraftx', 'lightcraft', 'filmcraft', 'effectcraft', 'vectorcraft', 'cadcraft', 'wordcraft', 'soundcraft', 'pdfcraft', 'designcraft', 'deckcraft', 'gridcraft'] } }, required: ['appId'] } } },
-              ...mcpTools.slice(0, 50).map((tool) => ({ type: 'function', function: { name: functionNameForTool(tool), description: (tool.description || tool.name).slice(0, 500), parameters: tool.inputSchema || { type: 'object', properties: {} } } })),
+              ...mcpTools.slice(0, 100).map((tool) => ({ type: 'function', function: { name: functionNameForTool(tool), description: (tool.description || tool.name).slice(0, 500), parameters: tool.inputSchema || { type: 'object', properties: {} } } })),
             ],
           }),
         });
@@ -175,7 +175,7 @@ class AIService {
           return { text: messageText || 'Review the proposed application launch before approving it.', toolProposal: { name: 'open_application', args: { appId: call.arguments.appId } } };
         }
         if (call && typeof call.name === 'string') {
-          const tool = mcpTools.slice(0, 50).find((item) => functionNameForTool(item) === call.name);
+          const tool = mcpTools.slice(0, 100).find((item) => functionNameForTool(item) === call.name);
           if (tool && call.arguments && typeof call.arguments === 'object' && !Array.isArray(call.arguments)) {
             return { text: messageText || 'Review the proposed editor operation before approving it.', toolProposal: { name: 'mcp_tool', args: { appId: tool.appId, toolName: tool.name, arguments: call.arguments as Record<string, unknown> } } };
           }
@@ -194,7 +194,7 @@ class AIService {
       const response = await fetch('/api/ai/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: this.config.cloudModel, prompt, context: { projectName: activeProjectName, appName: activeAppName }, mcpTools: mcpTools.slice(0, 50) }),
+        body: JSON.stringify({ model: this.config.cloudModel, prompt, context: { projectName: activeProjectName, appName: activeAppName }, mcpTools: mcpTools.slice(0, 100) }),
       });
       if (!response.ok) throw new Error('Cloud AI endpoint returned HTTP ' + response.status);
       const data = await response.json();

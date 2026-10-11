@@ -8,7 +8,7 @@ dotenv.config();
 
 const app = express();
 app.disable('x-powered-by');
-app.use(express.json({ limit: '32kb' }));
+app.use(express.json({ limit: '256kb' }));
 
 type ClientMcpTool = { appId: string; name: string; description?: string; inputSchema?: Record<string, unknown> };
 
@@ -94,7 +94,7 @@ app.post('/api/ai/chat', async (req, res) => {
 
   try {
     const client = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-    const suppliedTools: ClientMcpTool[] = Array.isArray(req.body?.mcpTools) ? req.body.mcpTools.slice(0, 50).filter((item: unknown): item is ClientMcpTool => {
+    const suppliedTools: ClientMcpTool[] = Array.isArray(req.body?.mcpTools) ? req.body.mcpTools.slice(0, 100).filter((item: unknown): item is ClientMcpTool => {
       if (!item || typeof item !== 'object' || Array.isArray(item)) return false;
       const tool = item as Record<string, unknown>;
       return typeof tool.appId === 'string' && LAUNCHABLE_APP_IDS.includes(tool.appId) && typeof tool.name === 'string' && /^[a-zA-Z0-9_.:-]{1,128}$/.test(tool.name) && (tool.inputSchema === undefined || (typeof tool.inputSchema === 'object' && tool.inputSchema !== null && !Array.isArray(tool.inputSchema)));

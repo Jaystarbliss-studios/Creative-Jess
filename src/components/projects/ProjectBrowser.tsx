@@ -28,16 +28,12 @@ interface LocalDirectoryHandle {
   getDirectoryHandle(name: string, options: { create: boolean }): Promise<LocalDirectoryHandle>;
   getFileHandle(name: string, options?: { create?: boolean }): Promise<LocalFileHandle>;
 }
-interface DirectoryPickerWindow extends Window {
-  showDirectoryPicker?: () => Promise<LocalDirectoryHandle>;
-}
 
 function safeFolderSegment(value: string): string {
-  const cleaned = value.replace(/[<>:"/\\|?*\u0000-\u001F]/g, '_').replace(/[. ]+$/g, '').slice(0, 100);
+  const cleaned = value.replace(/[<>:"\/\\|?*\u0000-\u001F]/g, '_').replace(/[. ]+$/g, '').slice(0, 100);
   if (!cleaned || /^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])$/i.test(cleaned)) return 'CraftProject';
   return cleaned;
 }
-
 interface ProjectBrowserProps {
   projects: Project[];
   activeProject: Project;
@@ -135,7 +131,7 @@ export const ProjectBrowser: React.FC<ProjectBrowserProps> = ({
   };
 
   const handleExportProjectToFolder = async () => {
-    const picker = (window as DirectoryPickerWindow).showDirectoryPicker;
+    const picker = (window as unknown as { showDirectoryPicker?: () => Promise<LocalDirectoryHandle> }).showDirectoryPicker;
     if (!picker) {
       setImportStatus({ success: false, message: 'This browser does not support folder export. Use a current desktop version of Chrome or Edge, or download each file individually.' });
       return;

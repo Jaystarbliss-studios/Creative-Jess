@@ -125,6 +125,7 @@ export interface CompanionState {
   registeredToolsCount: number;
   lastHeartbeat: string | null;
   allowlistedCommands: string[];
+  availableApps: string[];
 }
 
 export interface ActivityLog {

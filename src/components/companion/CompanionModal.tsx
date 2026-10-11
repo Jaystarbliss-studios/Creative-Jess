@@ -136,6 +136,12 @@ export const CompanionModal: React.FC<CompanionModalProps> = ({
             </div>
           )}
 
+          <div className="space-y-2">
+            <h3 className="text-xs font-semibold text-[var(--text-primary)]">Configured local applications ({companionState.availableApps.length})</h3>
+            <p className="text-[11px] leading-relaxed text-[var(--text-muted)]">The companion can launch only applications whose absolute executable paths you configured on this machine. It does not edit files or run arbitrary shell commands.</p>
+            {companionState.availableApps.length > 0 ? <div className="flex flex-wrap gap-2">{companionState.availableApps.map((appId) => <span key={appId} className="border border-[var(--border-subtle)] px-2 py-1 font-mono text-[10px] text-[var(--text-secondary)]">{appId}</span>)}</div> : <p className="text-[11px] text-amber-400">No executable paths configured. Set CRAFT_APP_PATHS_JSON and restart the companion.</p>}
+          </div>
+
           {/* Allowlisted Binaries */}
           <div className="space-y-2">
             <span className="font-medium text-[var(--text-primary)]">

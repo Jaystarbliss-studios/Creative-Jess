@@ -1,16 +1,7 @@
 import React, { useState } from 'react';
 import { ProjectAsset, CraftApp, CompanionState } from '../../types';
-import { 
-  Terminal, 
-  ExternalLink, 
-  Laptop, 
-  FileText, 
-  Download, 
-  Layers, 
-  Play, 
-  CheckCircle2,
-  AlertCircle
-} from 'lucide-react';
+import { companionService } from '../../services/companionService';
+import { ExternalLink, Laptop, AlertTriangle, FileText, Play } from 'lucide-react';
 
 interface GenericCraftWorkspaceProps {
   app: CraftApp;
@@ -26,184 +17,79 @@ export const GenericCraftWorkspace: React.FC<GenericCraftWorkspaceProps> = ({
   onOpenCompanionModal,
 }) => {
   const [executionOutput, setExecutionOutput] = useState<string | null>(null);
-  const [isRunning, setIsRunning] = useState<boolean>(false);
+  const [isRunning, setIsRunning] = useState(false);
+  const infrastructure = app.category === 'platform_services' || app.category === 'developer_infra';
+  const isConfigured = companionState.availableApps.includes(app.id);
+  const canLaunch = companionState.connected && companionState.tokenPaired && isConfigured && !infrastructure;
 
-  const handleLaunchViaCompanion = () => {
-    setExecutionOutput('No command was executed. This repository has no verified launch adapter yet. Review its source and implement a documented adapter before enabling native launch.');
+  const handleLaunch = async () => {
+    if (infrastructure) return;
+    if (!companionState.connected || !companionState.tokenPaired) {
+      onOpenCompanionModal();
+      return;
+    }
+    if (!isConfigured) {
+      setExecutionOutput('No executable path is configured for ' + app.id + '. Add its absolute executable path to CRAFT_APP_PATHS_JSON on the local machine, restart the companion, then check the connection again. No process was started.');
+      return;
+    }
+
+    setIsRunning(true);
+    setExecutionOutput(null);
+    try {
+      const result = await companionService.executeAllowlistedCommand('open-app', [app.id]);
+      setExecutionOutput(result.output);
+    } catch (error) {
+      setExecutionOutput('Launch request failed. ' + (error instanceof Error ? error.message : 'Unknown error'));
+    } finally {
+      setIsRunning(false);
+    }
   };
 
   return (
-    <div className="flex h-full w-full overflow-hidden bg-[var(--bg-workspace)]">
-      {/* Main Workspace Frame */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        {/* Top Header */}
-        <div className="h-11 shrink-0 border-b border-[var(--border-subtle)] bg-[var(--bg-surface)] px-4 flex items-center justify-between gap-3 text-xs">
-          <div className="flex items-center gap-2">
-            <span className="font-semibold text-[var(--text-primary)]">{app.name}</span>
-            <span className="text-[var(--text-muted)] font-mono text-[11px]">
-              v{app.version} · {app.edition}
-            </span>
-            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[var(--bg-elevated)] text-[var(--text-secondary)]">
-              {app.license}
-            </span>
+    <div className="flex h-full w-full overflow-auto bg-[var(--bg-workspace)]">
+      <div className="mx-auto w-full max-w-6xl px-6 py-8">
+        <header className="border-b border-[var(--border-subtle)] pb-6">
+          <div className="text-[11px] font-mono uppercase tracking-wider text-[var(--text-muted)]">{infrastructure ? 'Supporting repository' : 'Workspace preview'}</div>
+          <div className="mt-2 flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <h1 className="text-2xl font-semibold tracking-tight text-[var(--text-primary)]">{app.name}</h1>
+              <p className="mt-2 max-w-3xl text-sm leading-relaxed text-[var(--text-secondary)]">{app.description}</p>
+            </div>
+            {!infrastructure && <button onClick={handleLaunch} disabled={isRunning} title={canLaunch ? 'Launch the configured native application' : 'Open launch setup or review the local path configuration'} className="inline-flex items-center gap-2 border border-[var(--border-subtle)] px-3 py-2 text-xs text-[var(--text-primary)] hover:bg-[var(--bg-surface)] disabled:opacity-50">
+              <Play size={13} /> {isRunning ? 'Starting process…' : canLaunch ? 'Launch native app' : 'Check launch setup'}
+            </button>}
           </div>
+        </header>
 
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handleLaunchViaCompanion}
-              disabled={isRunning}
-              className="flex items-center gap-1.5 px-3 py-1 rounded bg-[#B7A0FF] text-[#101114] hover:bg-[#c8b6ff] transition-colors font-medium text-xs disabled:opacity-50"
-            >
-              <Play size={12} />
-              <span>{isRunning ? 'Checking...' : 'Launch not configured'}</span>
-            </button>
-          </div>
+        <section className="mt-6 border-l-2 border-amber-400 pl-4 py-2">
+          <div className="flex items-center gap-2 text-sm font-medium text-[var(--text-primary)]"><AlertTriangle size={15} className="text-amber-400" /> Upstream editor integration is not verified</div>
+          <p className="mt-2 max-w-3xl text-xs leading-relaxed text-[var(--text-secondary)]">This screen is the unified workspace shell, not the upstream editor. Native launch can start a configured process, but that does not prove the editor is ready or that editing, save, and export workflows work.</p>
+        </section>
+
+        <div className="mt-8 grid grid-cols-1 gap-8 md:grid-cols-[minmax(0,1fr)_280px]">
+          <section>
+            <h2 className="text-sm font-semibold text-[var(--text-primary)]">Integration record</h2>
+            <dl className="mt-3 divide-y divide-[var(--border-subtle)] border-y border-[var(--border-subtle)] text-xs">
+              <div className="flex justify-between gap-4 py-3"><dt className="text-[var(--text-muted)]">Upstream repository</dt><dd><a href={app.repoUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[var(--text-secondary)] hover:text-[var(--text-primary)]">{app.repoName} <ExternalLink size={11} /></a></dd></div>
+              <div className="flex justify-between gap-4 py-3"><dt className="text-[var(--text-muted)]">Source audit</dt><dd className="text-amber-400">Not inspected</dd></div>
+              <div className="flex justify-between gap-4 py-3"><dt className="text-[var(--text-muted)]">Version and license</dt><dd className="text-[var(--text-secondary)]">Not verified</dd></div>
+              <div className="flex justify-between gap-4 py-3"><dt className="text-[var(--text-muted)]">Configured executable</dt><dd className={isConfigured ? 'text-emerald-400' : 'text-[var(--text-muted)]'}>{isConfigured ? 'Path configured' : 'Not configured'}</dd></div>
+              <div className="flex justify-between gap-4 py-3"><dt className="text-[var(--text-muted)]">Selected project asset</dt><dd className="max-w-[60%] truncate text-right text-[var(--text-secondary)]">{asset?.name || 'None'}</dd></div>
+            </dl>
+            <p className="mt-4 text-xs leading-relaxed text-[var(--text-muted)]">{app.statusNotes}</p>
+            {executionOutput && <div className="mt-5 border-t border-[var(--border-subtle)] pt-4"><h3 className="text-xs font-semibold text-[var(--text-primary)]">Launch result</h3><pre className="mt-2 whitespace-pre-wrap break-words font-mono text-xs leading-relaxed text-[var(--text-secondary)]">{executionOutput}</pre></div>}
+          </section>
+
+          <aside className="border-t border-[var(--border-subtle)] pt-5 md:border-l md:border-t-0 md:pl-5 md:pt-0">
+            <h2 className="flex items-center gap-2 text-sm font-semibold text-[var(--text-primary)]"><Laptop size={15} /> Local companion</h2>
+            <p className="mt-3 text-xs leading-relaxed text-[var(--text-secondary)]">{companionState.connected && companionState.tokenPaired ? 'The companion is paired. Only configured application paths and registered commands can be requested.' : companionState.connected ? 'The companion is reachable but has not been paired.' : 'The local companion is offline or blocked by browser network permissions.'}</p>
+            <p className="mt-3 text-[11px] leading-relaxed text-[var(--text-muted)]">Configured application IDs: {companionState.availableApps.length ? companionState.availableApps.join(', ') : 'none'}</p>
+            <button onClick={onOpenCompanionModal} className="mt-4 border border-[var(--border-subtle)] px-3 py-2 text-xs text-[var(--text-primary)] hover:bg-[var(--bg-surface)]">Connection and launch setup</button>
+          </aside>
         </div>
 
-        {/* Studio Content Area */}
-        <div className="flex-1 overflow-auto p-8 max-w-4xl mx-auto space-y-8">
-          {/* Header & Tagline */}
-          <div className="space-y-3 border-b border-[var(--border-subtle)] pb-6">
-            <div className="flex items-center gap-2 text-xs font-mono text-[#B7A0FF]">
-              <span>STORYTOLD ECOSYSTEM</span>
-              <span aria-hidden="true">·</span>
-              <span>{app.repoName.toUpperCase()}</span>
-            </div>
-            <h1 className="text-2xl font-bold tracking-tight text-[var(--text-primary)]">
-              {app.name} Studio Workspace
-            </h1>
-            <p className="text-sm text-[var(--text-secondary)] leading-relaxed">
-              {app.description}
-            </p>
-          </div>
-
-          {/* Execution Output Console */}
-          {executionOutput && (
-            <div className="p-4 rounded bg-[#0A0B0D] border border-[var(--border-subtle)] font-mono text-xs space-y-2">
-              <div className="flex items-center justify-between text-[11px] text-[var(--text-muted)] border-b border-[var(--border-subtle)] pb-1.5">
-                <span>Process Execution Monitor</span>
-                <span className={companionState.connected ? 'text-emerald-400' : 'text-amber-400'}>
-                  {companionState.connected ? 'Process Attached' : 'Awaiting Companion'}
-                </span>
-              </div>
-              <pre className="text-[var(--text-secondary)] whitespace-pre-wrap leading-relaxed">
-                {executionOutput}
-              </pre>
-            </div>
-          )}
-
-          {/* Crate Architecture & Verified Capabilities */}
-          <div className="space-y-4">
-            <h2 className="text-sm font-semibold text-[var(--text-primary)]">
-              Verified Repository Crates & Sub-Apps ({app.cratesCount} Crates)
-            </h2>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-              {app.crates.map((crate) => (
-                <div 
-                  key={crate} 
-                  className="p-2.5 rounded bg-[var(--bg-surface)] border border-[var(--border-subtle)] font-mono text-xs text-[var(--text-secondary)] flex items-center justify-between"
-                >
-                  <span className="truncate">{crate}</span>
-                  <span className="text-[10px] text-[var(--text-muted)] shrink-0">crate</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Supported Formats */}
-          <div className="space-y-3">
-            <h2 className="text-sm font-semibold text-[var(--text-primary)]">
-              Native File Associations & Media Types
-            </h2>
-            <div className="flex flex-wrap gap-2">
-              {app.supportedFormats.map((fmt) => (
-                <span
-                  key={fmt}
-                  className="px-2.5 py-1 rounded bg-[var(--bg-surface)] border border-[var(--border-subtle)] font-mono text-xs text-[var(--text-primary)]"
-                >
-                  {fmt}
-                </span>
-              ))}
-            </div>
-          </div>
-
-          {/* CLI Instructions */}
-          {app.cliCommand && (
-            <div className="space-y-2 p-4 rounded bg-[var(--bg-surface)] border border-[var(--border-subtle)]">
-              <div className="text-xs font-semibold text-[var(--text-primary)] flex items-center gap-2">
-                <Terminal size={14} className="text-[#B7A0FF]" />
-                <span>Headless Command-Line Interface</span>
-              </div>
-              <p className="text-xs text-[var(--text-secondary)]">
-                You can invoke this tool directly through the terminal or script it into automated build pipelines.
-              </p>
-              <div className="p-2 rounded bg-[var(--bg-elevated)] font-mono text-xs text-[var(--text-primary)]">
-                {app.cliCommand}
-              </div>
-            </div>
-          )}
-        </div>
+        {!infrastructure && <div className="mt-8 flex items-start gap-3 border-t border-[var(--border-subtle)] pt-5 text-xs text-[var(--text-muted)]"><FileText size={15} className="mt-0.5 shrink-0" /><p>Opening a native app is only the first integration step. File operations and AI-controlled actions will remain disabled until an application-specific adapter is documented and tested.</p></div>}
       </div>
-
-      {/* Right Environment & Status Dock */}
-      <aside className="w-72 shrink-0 border-l border-[var(--border-subtle)] bg-[var(--bg-surface)] p-4 flex flex-col justify-between text-xs space-y-4">
-        <div className="space-y-4">
-          <div className="flex items-center gap-2 border-b border-[var(--border-subtle)] pb-2 font-semibold text-[var(--text-primary)]">
-            <Laptop size={14} className="text-[#B7A0FF]" />
-            <span>Runtime Target</span>
-          </div>
-
-          <div className="space-y-2 text-[11px] text-[var(--text-secondary)]">
-            <div className="flex justify-between py-1 border-b border-[var(--border-subtle)]/50">
-              <span>WebAssembly (WASM)</span>
-              <span className={`font-mono ${app.hasWasm ? 'text-emerald-400' : 'text-[var(--text-muted)]'}`}>
-                {app.hasWasm ? 'Supported' : 'Native only'}
-              </span>
-            </div>
-            <div className="flex justify-between py-1 border-b border-[var(--border-subtle)]/50">
-              <span>Native Desktop (egui)</span>
-              <span className={`font-mono ${app.hasDesktop ? 'text-emerald-400' : 'text-[var(--text-muted)]'}`}>
-                {app.hasDesktop ? 'Supported' : 'Headless/CLI'}
-              </span>
-            </div>
-            <div className="flex justify-between py-1 border-b border-[var(--border-subtle)]/50">
-              <span>MCP Protocol</span>
-              <span className={`font-mono ${app.hasMcp ? 'text-emerald-400' : 'text-[var(--text-muted)]'}`}>
-                {app.hasMcp ? 'Exposed' : 'None'}
-              </span>
-            </div>
-            <div className="flex justify-between py-1 border-b border-[var(--border-subtle)]/50">
-              <span>Companion Channel</span>
-              <span className="font-mono text-[var(--text-primary)]">Loopback :9876</span>
-            </div>
-          </div>
-
-          <div className="p-3 rounded bg-[var(--bg-elevated)] border border-[var(--border-subtle)] space-y-2">
-            <div className="font-medium text-[var(--text-primary)]">Companion Status</div>
-            <p className="text-[11px] text-[var(--text-muted)] leading-relaxed">
-              {companionState.connected
-                ? 'Local companion is paired. Native execution requests are authorized.'
-                : 'Companion is offline. Click below to configure local loopback pairing.'}
-            </p>
-            <button
-              onClick={onOpenCompanionModal}
-              className="w-full py-1.5 rounded bg-[var(--bg-surface)] border border-[var(--border-subtle)] text-[11px] font-medium text-[var(--text-primary)] hover:border-[#B7A0FF] transition-colors"
-            >
-              Configure Companion
-            </button>
-          </div>
-        </div>
-
-        <a
-          href={app.repoUrl}
-          target="_blank"
-          rel="noreferrer"
-          className="flex items-center justify-center gap-1.5 py-1.5 rounded bg-[var(--bg-elevated)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors text-xs"
-        >
-          <span>View GitHub Source</span>
-          <ExternalLink size={12} />
-        </a>
-      </aside>
     </div>
   );
 };

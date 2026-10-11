@@ -10,6 +10,7 @@ class LocalCompanionService {
     registeredToolsCount: 0,
     lastHeartbeat: null,
     allowlistedCommands: [],
+    availableApps: [],
   };
 
   private pairingToken: string | null = null;
@@ -33,34 +34,48 @@ class LocalCompanionService {
   }
 
   public getState(): CompanionState {
-    return { ...this.state };
+    return { ...this.state, allowlistedCommands: [...this.state.allowlistedCommands], availableApps: [...this.state.availableApps] };
   }
 
   public async checkConnection(): Promise<boolean> {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 1800);
     try {
-      // In web browser preview, we attempt loopback fetch or check companion endpoint
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 1200);
-      
-      const res = await fetch(`http://127.0.0.1:${this.state.port}/health`, {
+      const response = await fetch('http://127.0.0.1:' + this.state.port + '/health', {
         signal: controller.signal,
-        headers: { 'X-Craft-Origin': 'craft-workspace-web' }
+        headers: { 'X-Craft-Origin': 'craft-workspace-web' },
       }).catch(() => null);
 
-      clearTimeout(timeoutId);
-
-      if (res && res.ok) {
+      if (response && response.ok) {
+        const health = await response.json().catch(() => ({}));
         this.state.connected = true;
         this.state.lastHeartbeat = new Date().toISOString();
+        if (typeof health.version === 'string') this.state.version = health.version;
+        if (typeof health.os === 'string') this.state.os = health.os;
+        this.state.allowlistedCommands = Array.isArray(health.allowlistedCommands)
+          ? health.allowlistedCommands.filter((value: unknown): value is string => typeof value === 'string')
+          : [];
+        this.state.availableApps = Array.isArray(health.availableApps)
+          ? health.availableApps.filter((value: unknown): value is string => typeof value === 'string')
+          : [];
+        this.state.registeredToolsCount = typeof health.registeredToolsCount === 'number' ? health.registeredToolsCount : 0;
       } else {
-        // Not reachable directly via web fetch (or loopback blocked by browser CORS / companion not running)
         this.state.connected = false;
+        this.state.tokenPaired = false;
+        this.pairingToken = null;
+        this.state.allowlistedCommands = [];
+        this.state.availableApps = [];
       }
     } catch {
       this.state.connected = false;
+      this.state.tokenPaired = false;
+      this.pairingToken = null;
+      this.state.allowlistedCommands = [];
+      this.state.availableApps = [];
+    } finally {
+      clearTimeout(timeoutId);
+      this.notify();
     }
-
-    this.notify();
     return this.state.connected;
   }
 

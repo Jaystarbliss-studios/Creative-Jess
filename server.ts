@@ -1,7 +1,7 @@
 import express from 'express';
 import path from 'node:path';
 import { createServer as createViteServer } from 'vite';
-import { GoogleGenAI } from '@google/genai';
+import { GoogleGenAI, Type } from '@google/genai';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -58,8 +58,25 @@ app.post('/api/ai/chat', async (req, res) => {
 
   try {
     const client = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-    const contents = 'You are the Craft Workspace assistant. Answer helpfully and accurately. You cannot execute application tools or access project files unless a future verified adapter explicitly provides them. Never claim to have run an operation. Current project: ' + projectName + '. Active application: ' + appName + '. User request: ' + prompt;
-    const result = await client.models.generateContent({ model, contents });
+    const contents = 'You are the Craft Workspace assistant. Answer helpfully and accurately. You cannot access project files or edit documents. You may call open_application only when the user explicitly asks to open or launch a specific supported application. This is only a proposal: the user must approve it in the client, and you must never claim it already happened. Current project: ' + projectName + '. Active application: ' + appName + '. User request: ' + prompt;
+    const result = await client.models.generateContent({
+      model,
+      contents,
+      config: {
+        tools: [{ functionDeclarations: [{
+          name: 'open_application',
+          description: 'Propose launching a configured native application through the paired local companion. This does not open a file or perform editing.',
+          parameters: { type: Type.OBJECT, properties: { appId: { type: Type.STRING, enum: LAUNCHABLE_APP_IDS } }, required: ['appId'] },
+        }] }],
+        toolConfig: { functionCallingConfig: { mode: 'AUTO' } },
+      },
+    });
+    const proposedCall = result.functionCalls?.find((call) => call.name === 'open_application');
+    const proposedAppId = proposedCall?.args?.appId;
+    if (typeof proposedAppId === 'string' && LAUNCHABLE_APP_IDS.includes(proposedAppId)) {
+      res.json({ text: result.text || ('I can request to launch ' + proposedAppId + '. Review and approve the action below before anything runs.'), toolProposal: { name: 'open_application', args: { appId: proposedAppId } }, model });
+      return;
+    }
     const text = result.text;
     if (typeof text !== 'string' || !text.trim()) {
       res.status(502).json({ error: 'The model returned an empty response.' });
@@ -71,6 +88,8 @@ app.post('/api/ai/chat', async (req, res) => {
     res.status(502).json({ error: 'Cloud AI request failed.', detail: message });
   }
 });
+
+const LAUNCHABLE_APP_IDS = ['artcraft', 'photocraft', 'artcraftx', 'lightcraft', 'filmcraft', 'effectcraft', 'vectorcraft', 'cadcraft', 'wordcraft', 'soundcraft', 'pdfcraft', 'designcraft', 'deckcraft', 'gridcraft'];
 
 const port = Number(process.env.PORT || 3000);
 const isProduction = process.env.NODE_ENV === 'production';

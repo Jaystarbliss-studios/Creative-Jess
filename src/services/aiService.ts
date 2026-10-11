@@ -15,7 +15,7 @@ export interface RegisteredTool {
 }
 
 /** Keep empty until a documented application adapter has passed a real smoke test. */
-export const REGISTERED_AI_TOOLS: RegisteredTool[] = [];
+export const REGISTERED_AI_TOOLS: RegisteredTool[] = [{ id: 'open_application', name: 'Launch native application', description: 'Propose starting a configured native app through the paired local companion. Requires explicit approval and does not edit files.', targetAppId: 'local-companion', parameters: [{ name: 'appId', type: 'string', description: 'Stable application ID from the workspace catalog.', required: true }], isConsequential: true }];
 
 class AIService {
   private config: AIProviderConfig = {
@@ -111,7 +111,7 @@ class AIService {
     prompt: string,
     activeProjectName: string,
     activeAppName: string
-  ): Promise<{ text: string }> {
+  ): Promise<{ text: string; toolProposal?: { name: string; args: Record<string, unknown> } }> {
     if (this.config.mode === 'local') {
       const endpoint = this.config.localEndpoint.replace(/\/+$/, '');
       try {
@@ -150,6 +150,10 @@ class AIService {
       if (typeof data?.text !== 'string' || !data.text.trim()) throw new Error('Cloud AI endpoint returned no message text.');
       this.config.activeCloudConnected = true;
       this.listeners.forEach(cb => cb({ ...this.config }));
+      const proposal = data?.toolProposal;
+      if (proposal?.name === 'open_application' && typeof proposal?.args?.appId === 'string') {
+        return { text: data.text, toolProposal: { name: 'open_application', args: { appId: proposal.args.appId } } };
+      }
       return { text: data.text };
     } catch (error) {
       this.config.activeCloudConnected = false;

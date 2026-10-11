@@ -62,7 +62,7 @@ To run it, open **Actions → Upstream MCP pilot smoke tests → Run workflow** 
 
 ## Building upstream apps on Windows
 
-The companion can use real upstream CLI executables, but those binaries must exist on the computer running the companion. A starter script clones the native creative apps plus the launcher, font utility, and repository-status utility into a separate ignored .upstream folder. It attempts release builds of matching desktop packages and any -cli packages, records logs, and generates local absolute-path settings. Shared libraries, the PSD fixture corpus, ArtCraft Services, and Terraform are handled separately because they are dependencies/data, a backend requiring security review, or infrastructure rather than end-user editors:
+The companion can use real upstream CLI executables, but those binaries must exist on the computer running the companion. A starter script clones the core native creative applications into a separate ignored .upstream folder. It attempts release builds of matching desktop packages and any -cli packages, runs a real MCP initialize/tools-list smoke test for discovered CLIs, records per-repository logs, and generates local absolute-path settings. ArtCraft is opt-in because of its size. The launcher, font utility, repository-status utility, shared libraries, PSD fixture corpus, ArtCraft Services, and Terraform are not built by this script; they need separate dependency, licensing, security, or infrastructure review:
 
 ```powershell
 Set-ExecutionPolicy -Scope Process Bypass
@@ -71,7 +71,7 @@ Set-ExecutionPolicy -Scope Process Bypass
 npm run companion
 ```
 
-The script requires Git and Rust 1.95 or newer. It does not overwrite existing checkouts and continues past per-app build failures. ArtCraft is very large and excluded by default; add -IncludeArtCraft to opt in. This is a build aid, not a verification claim: inspect each log, confirm the generated executable path, run the app, and test a real create/open/edit/save/export workflow. ArtCraft Services and Terraform are deliberately excluded because they require separate security/deployment review.
+The script requires Git, Node.js, and Rust 1.95 or newer. It does not overwrite existing checkouts and continues past per-app build failures. ArtCraft is very large and excluded by default; add -IncludeArtCraft to opt in. This is a build aid, not a verification claim: inspect each log, confirm the generated executable path, run the app, and test a real create/open/edit/save/export workflow. ArtCraft Services and Terraform are deliberately excluded because they require separate security/deployment review.
 
 ## Upstream repositories
 

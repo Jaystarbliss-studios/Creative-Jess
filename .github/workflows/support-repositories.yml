@@ -1,0 +1,52 @@
+name: Build and test support repositories
+
+on:
+  push:
+    branches: ["work/real-integration-foundation"]
+    paths:
+      - ".github/workflows/support-repositories.yml"
+      - "docs/SUPPORT_REPOSITORY_AUDIT.md"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    name: Test ${{ matrix.repository }}
+    runs-on: windows-2025
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        repository:
+          - craft-launcher
+          - craft-fonts
+          - craft-libs
+          - craft-repo-status-app
+    steps:
+      - name: Checkout integration workspace
+        uses: actions/checkout@v4
+      - name: Checkout support repository
+        uses: actions/checkout@v4
+        with:
+          repository: storytold/${{ matrix.repository }}
+          ref: main
+          path: .upstream/${{ matrix.repository }}
+      - name: Install stable Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: Cache Cargo build outputs
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            .upstream/${{ matrix.repository }} -> target
+      - name: Test entire Cargo workspace
+        shell: pwsh
+        run: |
+          cargo test --manifest-path ".upstream/${{ matrix.repository }}/Cargo.toml" --workspace --no-fail-fast
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Build entire Cargo workspace in release mode
+        shell: pwsh
+        run: |
+          cargo build --manifest-path ".upstream/${{ matrix.repository }}/Cargo.toml" --workspace --release
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

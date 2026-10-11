@@ -121,8 +121,6 @@ class McpSession {
 
 export class McpBroker {
   private readonly sessions = new Map<string, McpSession>();
-  private readonly readRoot = process.env.CRAFT_MCP_READ_ROOT && path.isAbsolute(process.env.CRAFT_MCP_READ_ROOT) ? path.normalize(process.env.CRAFT_MCP_READ_ROOT) : null;
-  private readonly writeRoot = process.env.CRAFT_MCP_WRITE_ROOT && path.isAbsolute(process.env.CRAFT_MCP_WRITE_ROOT) ? path.normalize(process.env.CRAFT_MCP_WRITE_ROOT) : null;
   constructor(private readonly paths: Record<string, string>) {}
   configuredApps() { return Object.keys(this.paths); }
   private async session(appId: string) {
@@ -134,10 +132,9 @@ export class McpBroker {
     if (!Object.prototype.hasOwnProperty.call(this.paths, appId)) throw new Error('No MCP CLI is configured for this application.');
     const executable = this.paths[appId];
     await access(executable);
-    const args = ['mcp'];
-    if (this.readRoot) args.push('--automation-read-root', this.readRoot);
-    if (this.writeRoot) args.push('--automation-write-root', this.writeRoot);
-    return new McpSession(executable, args);
+    // Do not invent generic path-sandbox flags: upstream CLIs have different option contracts.
+    // The user reviews every proposed tool call, but filesystem scope remains an upstream-tool concern.
+    return new McpSession(executable, ['mcp']);
   }
   async listTools(appId: string) {
     return (await this.session(appId)).listTools();

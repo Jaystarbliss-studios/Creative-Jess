@@ -19,7 +19,9 @@ The project intentionally uses conservative integration statuses. Do not change 
 - Cloud/local AI mode selection.
 - Cloud AI chat through a server-side Gemini API route when GEMINI_API_KEY is configured as a server-side secret.
 - Ollama-compatible local chat requests, subject to local runtime and browser network/CORS policy.
-- Local companion health and pairing attempts fail closed rather than simulating a successful connection.
+- Loopback-only local companion that can launch explicitly configured native executables through a structured allowlisted command; it cannot execute arbitrary shell commands.
+- Companion pairing token is generated at launch and printed locally; configured app paths are read from CRAFT_APP_PATHS_JSON.
+- Companion health, pairing rejection, and unauthorized command requests are covered by a runtime test.
 - No upstream application commands are exposed as AI tools yet.
 
 ## Development
@@ -36,9 +38,9 @@ GitHub Actions on the integration branch runs TypeScript checking, adapter safet
 
 ## Security notes
 
-The AI endpoint has a same-origin check and a basic in-memory per-IP rate limit. These are not a substitute for user authentication. Before exposing this service publicly, deploy it behind appropriate authentication or an access-controlled hosting layer. Cloud API keys must remain server-side. The AI assistant currently has no permission to execute application tools.
+The AI endpoint has a same-origin check and a basic in-memory per-IP rate limit. These are not a substitute for user authentication. Before exposing the web service publicly, deploy it behind appropriate authentication or an access-controlled hosting layer. Cloud API keys must remain server-side. The AI assistant currently has no permission to execute application tools.
 
-The local companion is not included in this repository. Pairing and command requests will only be considered successful if a real companion returns an explicit successful response. The corresponding companion protocol must be implemented and reviewed before production use.
+Run npm run companion on the machine where native applications are installed. Set CRAFT_APP_PATHS_JSON to a JSON object mapping known app IDs to absolute executable paths, and set CRAFT_WORKSPACE_ORIGINS to the exact web origins allowed to connect. The companion binds only to 127.0.0.1 and prints a fresh pairing token at startup. It currently supports process launch only; it does not prove editor readiness, edit files, or expose arbitrary shell execution. Review the protocol before production use.
 
 ## Upstream repositories
 

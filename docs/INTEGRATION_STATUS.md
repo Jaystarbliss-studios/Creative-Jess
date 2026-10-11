@@ -9,7 +9,7 @@ Last updated: 2026-10-11
 - Workspace stack observed: React, TypeScript, Vite, Tailwind CSS.
 - Upstream catalog size: 21 repositories.
 - Upstream repositories built and smoke-tested from this workspace: 0 verified by this audit.
-- Local companion source/runtime: not present or verified in this repository.
+- Local companion: loopback-only Node/Express launcher added; its health/auth rejection smoke test is part of CI. It only launches explicitly configured executables and is not an editor API.
 - Cloud AI route: server-side Gemini route added; requires GEMINI_API_KEY and a protected deployment.
 - Local AI: Ollama-compatible browser request can be attempted, but success depends on the local runtime and browser network policy.
 - Integration shell validation: passed in GitHub Actions on commit e3e50f80eefbf9d1d9b270aad0ef69130bae1dc2 (TypeScript check, adapter safety tests, production frontend build).
@@ -17,7 +17,7 @@ Last updated: 2026-10-11
 
 The earlier catalog contained specific versions, licenses, crate counts, file formats, and statements such as “integrated and verified” without supporting build logs or test evidence in this repository. Catalog metadata has been made conservative until each upstream repository is audited.
 
-The integration shell now includes a typed adapter registry. It fails closed when an app adapter or capability is missing, validates arguments when a validator is supplied, checks adapter health before execution, and validates result shape. Its automated tests pass. No upstream adapters are registered yet.
+The integration shell now includes a typed adapter registry. It fails closed when an app adapter or capability is missing, validates arguments when a validator is supplied, checks adapter health before execution, and validates result shape. Its automated tests pass. The local companion can launch configured native application processes using a fixed open-app command and app-ID-to-path mapping. No editing/automation adapters are registered yet.
 
 ## Status definitions
 

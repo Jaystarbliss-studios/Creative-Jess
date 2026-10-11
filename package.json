@@ -11,7 +11,8 @@
     "lint": "tsc --noEmit",
     "start": "tsx server.ts",
     "test": "node --import tsx --test tests/adapterRegistry.test.ts tests/companionServer.test.ts tests/mcpBroker.test.ts",
-    "companion": "tsx companion/server.ts"
+    "companion": "tsx companion/server.ts",
+    "verify": "npm run lint && npm test && npm run build"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

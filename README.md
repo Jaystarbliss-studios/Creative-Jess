@@ -36,7 +36,7 @@ Use a supported Node.js release for the installed Vite version.
 1. Install dependencies with npm install.
 2. Copy .env.example to .env and set GEMINI_API_KEY if cloud AI is needed. Never put it in client-side code or commit the real .env file.
 3. Run npm run dev to start the Vite-backed Express development server.
-4. Run npm run lint and npm run build before pushing.
+4. Run npm run verify before pushing; it performs TypeScript checking, the automated safety tests, and a production frontend build.
 5. For production, build the frontend and run npm start with NODE_ENV=production.
 
 GitHub Actions on the integration branch runs TypeScript checking, adapter/companion safety tests, a production frontend build, and a Windows upstream pilot for PhotoCraft, VectorCraft, and DesignCraft. The workspace validation and PowerShell parser checks pass on recent commits. A completed upstream pilot run confirmed desktop/CLI builds and MCP discovery for PhotoCraft and VectorCraft; a later pilot also confirmed DesignCraft. The workflow may still be running on the newest revision, so check Actions for the current head before treating the latest commit as green.

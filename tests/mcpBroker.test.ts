@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, writeFile, chmod, rm } from 'node:fs/promises';
+import { mkdtemp, writeFile, readFile, chmod, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { McpBroker } from '../companion/mcpBroker.ts';
@@ -11,12 +11,13 @@ test('MCP broker keeps a discovered CLI session alive and validates calls before
   const script = `#!/usr/bin/env node
 const readline = require('node:readline');
 const rl = readline.createInterface({ input: process.stdin });
+const marker = ${JSON.stringify(path.join(directory, 'starts.txt'))};
 rl.on('line', (line) => {
   let request;
   try { request = JSON.parse(line); } catch { process.exit(2); }
   if (typeof request.id !== 'number') return;
   let result = {};
-  if (request.method === 'initialize') result = { protocolVersion: '2025-06-18', capabilities: { tools: {} }, serverInfo: { name: 'fake', version: '1' } };
+  if (request.method === 'initialize') { require('node:fs').appendFileSync(marker, 'start\\n'); result = { protocolVersion: '2025-06-18', capabilities: { tools: {} }, serverInfo: { name: 'fake', version: '1' } }; }
   else if (request.method === 'tools/list') result = { tools: [{ name: 'echo', description: (process.env.GEMINI_API_KEY ? 'secret-leaked' : 'clean') + '|' + process.argv.slice(2).join('|'), inputSchema: { type: 'object', properties: { text: { type: 'string', maxLength: 20 } }, required: ['text'], additionalProperties: false } }] };
   else if (request.method === 'tools/call' && request.params.name === 'echo') result = { content: [{ type: 'text', text: request.params.arguments.text }] };
   else { process.stdout.write(JSON.stringify({ jsonrpc: '2.0', id: request.id, error: { code: -32601, message: 'unknown method' } }) + '\\n'); return; }
@@ -32,6 +33,8 @@ rl.on('line', (line) => {
     const tools = await broker.listTools('testapp');
     const toolsAgain = await broker.listTools('testapp');
     assert.equal(toolsAgain.length, 1, 'tool discovery should reuse the same live CLI session');
+    const starts = await readFile(path.join(directory, 'starts.txt'), 'utf8');
+    assert.equal(starts.trim().split(/\\r?\\n/).length, 1, 'repeated discovery should start only one CLI process');
     assert.equal(tools.length, 1);
     assert.equal(tools[0].name, 'echo');
     assert.equal(tools[0].description, 'clean|mcp', 'default invocation uses only the documented MCP subcommand and must not inherit provider credentials');

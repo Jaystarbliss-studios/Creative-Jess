@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process';
-import { mkdtemp, rm, readFile } from 'node:fs/promises';
+import { mkdtemp, rm, readFile, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -17,6 +17,7 @@ if (!binary || !path.isAbsolute(binary)) {
 const temp = await mkdtemp(path.join(os.tmpdir(), 'craft-mcp-smoke-'));
 const args = ['mcp'];
 if (supportsRoots) args.push('--automation-read-root', temp, '--automation-write-root', temp);
+if (acceptance === 'pdfcraft') args.push('--root', temp);
 const child = spawn(binary, args, { shell: false, stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true });
 let stdout = '';
 let stderr = '';
@@ -127,6 +128,33 @@ try {
         throw new Error('PhotoCraft acceptance failed: exported PNG signature or file size is invalid.');
       }
       acceptanceResult = { scenario: 'photocraft-create-inspect-export-png', verified: true, outputFormat: 'png', outputInsideTemporaryDirectory: true, outputBytes: savedBytes.length };
+    } else if (acceptance === 'pdfcraft') {
+      const stream = 'BT /F1 12 Tf 30 150 Td (CreativeJessPdfAcceptance) Tj ET\\n';
+      const objects = [
+        '1 0 obj\\n<< /Type /Catalog /Pages 2 0 R >>\\nendobj\\n',
+        '2 0 obj\\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\\nendobj\\n',
+        '3 0 obj\\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 300 200] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>\\nendobj\\n',
+        '4 0 obj\\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\\nendobj\\n',
+        '5 0 obj\\n<< /Length ' + Buffer.byteLength(stream, 'utf8') + ' >>\\nstream\\n' + stream + 'endstream\\nendobj\\n',
+      ];
+      let pdf = '%PDF-1.4\\n';
+      const offsets = [0];
+      for (const object of objects) { offsets.push(Buffer.byteLength(pdf, 'utf8')); pdf += object; }
+      const xrefOffset = Buffer.byteLength(pdf, 'utf8');
+      pdf += 'xref\\n0 6\\n0000000000 65535 f \\n' + offsets.slice(1).map((offset) => String(offset).padStart(10, '0') + ' 00000 n \\n').join('');
+      pdf += 'trailer\\n<< /Size 6 /Root 1 0 R >>\\nstartxref\\n' + xrefOffset + '\\n%%EOF\\n';
+      await writeFile(path.join(temp, 'acceptance-input.pdf'), pdf, 'utf8');
+      const opened = await callTool('doc_open', { path: 'acceptance-input.pdf' });
+      const docMatch = opened.match(/"doc"\\s*:\\s*(\\d+)/);
+      if (!docMatch) throw new Error('PDFCraft acceptance failed: doc_open did not return a document id: ' + opened.slice(0, 500));
+      const docId = Number(docMatch[1]);
+      await callTool('page_rotate', { doc: docId, degrees: 90 });
+      await callTool('doc_save', { doc: docId, path: 'acceptance-output.pdf', full: true });
+      const savedPdf = await readFile(path.join(temp, 'acceptance-output.pdf'));
+      if (savedPdf.length < 100 || savedPdf.subarray(0, 5).toString('ascii') !== '%PDF-') {
+        throw new Error('PDFCraft acceptance failed: saved PDF header or file size is invalid.');
+      }
+      acceptanceResult = { scenario: 'pdfcraft-open-rotate-save-pdf', verified: true, outputFormat: 'pdf', outputInsideTemporaryDirectory: true, outputBytes: savedPdf.length };
     } else if (acceptance === 'vectorcraft') {
       const outputName = 'creative-jess-acceptance.svg';
       await callTool('run_command', { command: 'file.new', params: { width: 320, height: 240 } });

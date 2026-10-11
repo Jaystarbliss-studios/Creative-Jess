@@ -92,6 +92,15 @@ export const AIWorkspace: React.FC<AIWorkspaceProps> = ({
       };
 
       setMessages((prev) => [...prev, assistantMsg]);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'The AI request failed. Check your provider settings and connection, then try again.';
+      setMessages((prev) => [...prev, {
+        id: 'msg-error-' + Date.now(),
+        sender: 'assistant',
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        mode: aiConfig.mode,
+        text: 'I could not complete that request. ' + message,
+      }]);
     } finally {
       setIsProcessing(false);
     }
@@ -104,7 +113,7 @@ export const AIWorkspace: React.FC<AIWorkspaceProps> = ({
     if (!toolCall) return;
     if (!companionState.connected || !companionState.tokenPaired) {
       onOpenCompanionModal();
-      setMessages((prev) => prev.map((item) => item.id === msgId && item.toolCall ? { ...item, toolCall: { ...item.toolCall, result: 'No action was run. Pair the local companion, then approve this proposal again.' } } : item));
+      setMessages((prev) => prev.map((item) => item.id === msgId && item.toolCall ? { ...item, toolCall: { ...item.toolCall, status: 'failed', result: 'No action was run. Pair the local companion, then ask again to create a fresh proposal.' } } : item));
       return;
     }
     if (toolCall.toolName === 'mcp_tool') {
@@ -242,7 +251,7 @@ export const AIWorkspace: React.FC<AIWorkspaceProps> = ({
                       </span>
                       <span className={`text-[10px] px-1.5 py-0.5 rounded font-mono ${
                         msg.toolCall.status === 'executed' ? 'bg-emerald-500/20 text-emerald-400' :
-                        msg.toolCall.status === 'rejected' ? 'bg-rose-500/20 text-rose-400' :
+                        msg.toolCall.status === 'rejected' || msg.toolCall.status === 'failed' ? 'bg-rose-500/20 text-rose-400' :
                         'bg-amber-500/20 text-amber-400'
                       }`}>
                         {msg.toolCall.status.toUpperCase()}
@@ -252,7 +261,7 @@ export const AIWorkspace: React.FC<AIWorkspaceProps> = ({
                     <div className="p-2.5 rounded bg-[var(--bg-elevated)] font-mono text-[11px] text-[var(--text-secondary)] space-y-0.5">
                       {Object.entries(msg.toolCall.parameters).map(([key, val]) => (
                         <div key={key}>
-                          <span className="text-[var(--text-muted)]">{key}:</span> {String(val)}
+                          <span className="text-[var(--text-muted)]">{key}:</span> {typeof val === 'object' && val !== null ? JSON.stringify(val) : String(val)}
                         </div>
                       ))}
                     </div>
@@ -260,7 +269,7 @@ export const AIWorkspace: React.FC<AIWorkspaceProps> = ({
                     {msg.toolCall.status === 'proposed' && (
                       <div className="flex items-center gap-2 pt-1">
                         <button
-                          onClick={() => void handleApproveTool(msg.id)} disabled={executingToolId === msg.id}
+                          onClick={() => void handleApproveTool(msg.id)} disabled={Boolean(executingToolId)}
                           className="flex items-center gap-1 px-3 py-1.5 rounded bg-emerald-500 hover:bg-emerald-600 text-white font-medium text-xs transition-colors"
                         >
                           <Check size={13} />

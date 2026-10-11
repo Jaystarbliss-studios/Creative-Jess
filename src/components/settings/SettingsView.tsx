@@ -178,7 +178,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           <span>Project Data Backup</span>
         </div>
         <p className="text-xs text-[var(--text-secondary)]">
-          Download a complete portable JSON export of workspace projects, asset manifests, and registered settings.
+          Export workspace metadata, asset manifests, and settings. Binary file contents stored in IndexedDB are not included in this JSON snapshot.
         </p>
         <button
           onClick={handleExportBackup}

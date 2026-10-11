@@ -14,6 +14,7 @@ The project intentionally uses conservative integration statuses. Do not change 
 - Dark/light theme tokens.
 - Application and supporting-repository directory.
 - Initial project browser and workspace previews.
+- Real file selection/import into IndexedDB-backed local asset storage, plus download of imported originals.
 - Browser-local persistence for project metadata, active project selection, and theme preferences.
 - Typed, fail-closed adapter registry with tests; no upstream app adapters are registered yet.
 - Cloud/local AI mode selection.
@@ -40,7 +41,12 @@ GitHub Actions on the integration branch runs TypeScript checking, adapter safet
 
 The AI endpoint has a same-origin check and a basic in-memory per-IP rate limit. These are not a substitute for user authentication. Before exposing the web service publicly, deploy it behind appropriate authentication or an access-controlled hosting layer. Cloud API keys must remain server-side. The AI assistant currently has no permission to execute application tools.
 
-Run npm run companion on the machine where native applications are installed. Set CRAFT_APP_PATHS_JSON to a JSON object mapping known app IDs to absolute executable paths, and set CRAFT_WORKSPACE_ORIGINS to the exact web origins allowed to connect. The companion binds only to 127.0.0.1 and prints a fresh pairing token at startup. It currently supports process launch only; it does not prove editor readiness, edit files, or expose arbitrary shell execution. Review the protocol before production use.
+Run npm run companion on the machine where native applications are installed. On Windows PowerShell, configure the actual executable path, then start the companion:
+
+    $env:CRAFT_APP_PATHS_JSON='{"photocraft":"C:\\CraftApps\\PhotoCraft\\photocraft.exe"}'
+    npm run companion
+
+The path above is an example only; replace it with the real installed executable path. Set CRAFT_WORKSPACE_ORIGINS to the exact web origin that should be allowed to connect. The companion binds only to 127.0.0.1 and prints a fresh pairing token at startup. Enter that token in the workspace companion dialog. It currently supports process launch only; it does not prove editor readiness, edit files, or expose arbitrary shell execution. Review the protocol before production use.
 
 ## Upstream repositories
 

@@ -9,10 +9,11 @@ Last updated: 2026-10-11
 - Workspace stack observed: React, TypeScript, Vite, Tailwind CSS.
 - Upstream catalog size: 21 repositories.
 - Upstream repositories built and smoke-tested from this workspace: 0 verified by this audit.
-- Local companion: loopback-only Node/Express launcher added; its health/auth rejection smoke test is part of CI. It only launches explicitly configured executables and is not an editor API.
+- Local companion: loopback-only Node/Express launcher added; its health/auth rejection smoke test passes in CI. It launches only explicitly configured executables and is not an editor API.
+- File import: Project Browser uses IndexedDB to store real selected file bytes and localStorage for project metadata. Download of imported originals is implemented. Suggested app mappings do not imply format compatibility.
 - Cloud AI route: server-side Gemini route added; requires GEMINI_API_KEY and a protected deployment.
 - Local AI: Ollama-compatible browser request can be attempted, but success depends on the local runtime and browser network policy.
-- Integration shell validation: passed in GitHub Actions on commit e3e50f80eefbf9d1d9b270aad0ef69130bae1dc2 (TypeScript check, adapter safety tests, production frontend build).
+- Integration shell validation: passed in GitHub Actions on commit e28735de020adf925b3a788dd3370431255cb3dc (TypeScript check, adapter safety tests, local companion health/pairing/authorization test, production frontend build).
 - Upstream app builds and smoke tests: still not run; shell CI does not prove upstream integration.
 
 The earlier catalog contained specific versions, licenses, crate counts, file formats, and statements such as “integrated and verified” without supporting build logs or test evidence in this repository. Catalog metadata has been made conservative until each upstream repository is audited.

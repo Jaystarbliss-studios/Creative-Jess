@@ -1,6 +1,14 @@
 name: Upstream MCP pilot smoke tests
 
 on:
+  push:
+    branches:
+      - work/real-integration-foundation
+    paths:
+      - '.github/workflows/upstream-pilot.yml'
+      - 'scripts/smoke-mcp.mjs'
+      - 'scripts/bootstrap-upstream.ps1'
+      - 'companion/mcpBroker.ts'
   workflow_dispatch:
     inputs:
       include_scoped_filesystem_roots:

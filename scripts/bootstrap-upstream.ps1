@@ -16,7 +16,7 @@ if ($rustVersionText -notmatch 'rustc (\d+)\.(\d+)') { throw "Could not parse Ru
 $rustMajor = [int]$Matches[1]; $rustMinor = [int]$Matches[2]
 if (($rustMajor -lt 1) -or ($rustMajor -eq 1 -and $rustMinor -lt 95)) { throw "PhotoCraft and VectorCraft manifests require Rust 1.95 or newer. Found: $rustVersionText" }
 
-$repositories = @('photocraft','vectorcraft','lightcraft','filmcraft','artcraftx','cadcraft','wordcraft','soundcraft','pdfcraft','designcraft','effectcraft','deckcraft','gridcraft')
+$repositories = @('photocraft','vectorcraft','lightcraft','filmcraft','artcraftx','cadcraft','wordcraft','soundcraft','pdfcraft','designcraft','effectcraft','deckcraft','gridcraft','craft-launcher','craft-fonts','craft-repo-status-app')
 if ($IncludeArtCraft) { $repositories += 'artcraft' }
 $appPaths = [ordered]@{}
 $mcpPaths = [ordered]@{}

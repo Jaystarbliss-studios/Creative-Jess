@@ -57,7 +57,7 @@ The path above is an example only; replace it with the real installed executable
 
 ## Building upstream apps on Windows
 
-The companion can use real upstream CLI executables, but those binaries must exist on the computer running the companion. A starter script clones native app repositories into a separate ignored .upstream folder, attempts release builds of the matching desktop package and any -cli package, records logs, and generates local absolute-path settings:
+The companion can use real upstream CLI executables, but those binaries must exist on the computer running the companion. A starter script clones the native creative apps plus the launcher, font utility, and repository-status utility into a separate ignored .upstream folder. It attempts release builds of matching desktop packages and any -cli packages, records logs, and generates local absolute-path settings. Shared libraries, the PSD fixture corpus, ArtCraft Services, and Terraform are handled separately because they are dependencies/data, a backend requiring security review, or infrastructure rather than end-user editors:
 
 ```powershell
 Set-ExecutionPolicy -Scope Process Bypass

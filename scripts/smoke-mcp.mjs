@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, rm, readFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -9,6 +9,7 @@ function option(name) {
 }
 const binary = option('--binary');
 const supportsRoots = process.argv.includes('--scoped-roots');
+const acceptance = option('--acceptance');
 if (!binary || !path.isAbsolute(binary)) {
   console.error('Usage: node scripts/smoke-mcp.mjs --binary <absolute-path> [--scoped-roots]');
   process.exit(2);
@@ -84,7 +85,30 @@ try {
     if (call.isError === true) throw new Error('Read-only MCP tool call failed: ' + safeTool.name);
     readOnlyToolCall = safeTool.name;
   }
-  console.log(JSON.stringify({ ok: true, serverInfo: init.serverInfo, protocolVersion: init.protocolVersion, toolCount: catalog.tools.length, firstTools: catalog.tools.slice(0, 8).map((tool) => tool.name), readOnlyToolCall, scopedRootFlagsPassed: supportsRoots }));
+  let acceptanceResult = null;
+  if (acceptance) {
+    if (acceptance !== 'wordcraft') throw new Error('Unsupported acceptance scenario: ' + acceptance);
+    const availableNames = new Set(catalog.tools.map((tool) => tool.name));
+    for (const required of ['new_document', 'type_text', 'get_text', 'save_document']) {
+      if (!availableNames.has(required)) throw new Error('WordCraft acceptance scenario requires MCP tool ' + required + '.');
+    }
+    const callTool = async (name, args) => {
+      const result = await request('tools/call', { name, arguments: args });
+      if (result.isError === true) throw new Error('Acceptance tool call failed: ' + name + ' ' + JSON.stringify(result.content || []));
+      return (result.content || []).map((item) => typeof item.text === 'string' ? item.text : '').join('\\n');
+    };
+    const marker = 'Creative Jess WordCraft acceptance ' + Date.now();
+    await callTool('new_document', { template: 'blank' });
+    await callTool('type_text', { text: marker });
+    const readBack = await callTool('get_text', {});
+    if (!readBack.includes(marker)) throw new Error('WordCraft acceptance failed: typed text was not returned by get_text.');
+    const outputPath = path.join(temp, 'creative-jess-acceptance.md');
+    await callTool('save_document', { path: outputPath });
+    const savedText = await readFile(outputPath, 'utf8');
+    if (!savedText.includes(marker)) throw new Error('WordCraft acceptance failed: saved Markdown does not contain the typed text.');
+    acceptanceResult = { scenario: 'wordcraft-create-type-read-save-markdown', verified: true, outputFormat: 'md', outputInsideTemporaryDirectory: true };
+  }
+  console.log(JSON.stringify({ ok: true, serverInfo: init.serverInfo, protocolVersion: init.protocolVersion, toolCount: catalog.tools.length, firstTools: catalog.tools.slice(0, 8).map((tool) => tool.name), readOnlyToolCall, scopedRootFlagsPassed: supportsRoots, acceptance: acceptanceResult }));
   child.stdin.end();
   child.kill();
 } catch (error) {

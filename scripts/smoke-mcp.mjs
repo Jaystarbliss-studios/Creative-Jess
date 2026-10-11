@@ -127,6 +127,16 @@ try {
         throw new Error('PhotoCraft acceptance failed: exported PNG signature or file size is invalid.');
       }
       acceptanceResult = { scenario: 'photocraft-create-inspect-export-png', verified: true, outputFormat: 'png', outputInsideTemporaryDirectory: true, outputBytes: savedBytes.length };
+    } else if (acceptance === 'vectorcraft') {
+      const outputName = 'creative-jess-acceptance.svg';
+      await callTool('run_command', { command: 'file.new', params: { width: 320, height: 240 } });
+      await callTool('draw_shape', { shape: 'rectangle', x: 24, y: 28, width: 120, height: 72, fill: '#ff0000', stroke: 'none' });
+      const inspection = await callTool('inspect_document', { depth: 1, childLimit: 20 });
+      if (!inspection || !inspection.toLowerCase().includes('rectangle')) throw new Error('VectorCraft acceptance failed: document inspection did not show the created rectangle.');
+      await callTool('export', { path: outputName, format: 'svg' });
+      const savedSvg = await readFile(path.join(temp, outputName), 'utf8');
+      if (!savedSvg.includes('<svg') || savedSvg.length < 100) throw new Error('VectorCraft acceptance failed: exported SVG is missing or malformed.');
+      acceptanceResult = { scenario: 'vectorcraft-create-draw-inspect-export-svg', verified: true, outputFormat: 'svg', outputInsideTemporaryDirectory: true, outputCharacters: savedSvg.length };
     } else if (acceptance === 'deckcraft') {
       const marker = 'Creative Jess DeckCraft acceptance ' + Date.now();
       await callTool('new_presentation', {});

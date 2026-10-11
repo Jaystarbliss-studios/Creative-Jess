@@ -31,6 +31,37 @@ class AIService {
 
   private listeners: ((config: AIProviderConfig) => void)[] = [];
 
+  constructor() {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = window.localStorage.getItem('craft-workspace:ai-preferences');
+        const preferences = saved ? JSON.parse(saved) : null;
+        if (preferences && typeof preferences === 'object') {
+          if (preferences.mode === 'cloud' || preferences.mode === 'local') this.config.mode = preferences.mode;
+          if (typeof preferences.localEndpoint === 'string' && preferences.localEndpoint.trim()) this.config.localEndpoint = preferences.localEndpoint;
+          if (typeof preferences.localModel === 'string' && preferences.localModel.trim()) this.config.localModel = preferences.localModel;
+          if (typeof preferences.confirmConsequentialTools === 'boolean') this.config.confirmConsequentialTools = preferences.confirmConsequentialTools;
+        }
+      } catch {
+        // Invalid saved preferences are ignored; safe defaults remain active.
+      }
+    }
+  }
+
+  private persistPreferences() {
+    if (typeof window === 'undefined') return;
+    try {
+      window.localStorage.setItem('craft-workspace:ai-preferences', JSON.stringify({
+        mode: this.config.mode,
+        localEndpoint: this.config.localEndpoint,
+        localModel: this.config.localModel,
+        confirmConsequentialTools: this.config.confirmConsequentialTools,
+      }));
+    } catch {
+      // Keep current-session settings when browser storage is unavailable.
+    }
+  }
+
   public subscribe(callback: (config: AIProviderConfig) => void) {
     this.listeners.push(callback);
     callback(this.config);
@@ -45,6 +76,7 @@ class AIService {
 
   public setMode(mode: AIMode) {
     this.config.mode = mode;
+    this.persistPreferences();
     this.listeners.forEach(cb => cb({ ...this.config }));
   }
 
@@ -55,6 +87,7 @@ class AIService {
 
   public setConfirmConsequential(confirm: boolean) {
     this.config.confirmConsequentialTools = confirm;
+    this.persistPreferences();
     this.listeners.forEach(cb => cb({ ...this.config }));
   }
 

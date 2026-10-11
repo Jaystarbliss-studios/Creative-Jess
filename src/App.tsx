@@ -28,7 +28,9 @@ import { GridCraftWorkspace } from './components/workspaces/GridCraftWorkspace';
 import { GenericCraftWorkspace } from './components/workspaces/GenericCraftWorkspace';
 
 export default function App() {
-  const [appName, setAppName] = useState('Craft Workspace');
+  const [appName, setAppName] = useState(() => {
+    try { return window.localStorage.getItem('craft-workspace:name') || 'Craft Workspace'; } catch { return 'Craft Workspace'; }
+  });
   const [theme, setTheme] = useState<'dark' | 'light'>(() => {
     try { return window.localStorage.getItem('craft-workspace:theme') === 'light' ? 'light' : 'dark'; } catch { return 'dark'; }
   });
@@ -82,6 +84,10 @@ export default function App() {
       document.documentElement.classList.remove('light');
     }
   }, [theme]);
+
+  useEffect(() => {
+    try { window.localStorage.setItem('craft-workspace:name', appName); } catch { /* Keep the current-session name. */ }
+  }, [appName]);
 
   // Persist workspace metadata locally. Browser storage may be unavailable or full; editing remains usable in memory.
   useEffect(() => {
@@ -182,6 +188,13 @@ export default function App() {
   };
 
   // Toggle AI mode between Cloud and Local
+  const handleUpdateAIConfig = (cfg: Partial<AIProviderConfig>) => {
+    if (cfg.mode) aiService.setMode(cfg.mode);
+    if (typeof cfg.localEndpoint === 'string') aiService.setLocalEndpoint(cfg.localEndpoint);
+    if (typeof cfg.confirmConsequentialTools === 'boolean') aiService.setConfirmConsequential(cfg.confirmConsequentialTools);
+    setAIConfig({ ...aiService.getConfig(), ...cfg });
+  };
+
   const handleSwitchAIMode = () => {
     const nextMode = aiConfig.mode === 'cloud' ? 'local' : 'cloud';
     aiService.setMode(nextMode);
@@ -314,7 +327,7 @@ export default function App() {
             activeProject={activeProject}
             activeApp={activeApp}
             aiConfig={aiConfig}
-            onUpdateAIConfig={(cfg) => setAIConfig({ ...aiConfig, ...cfg })}
+            onUpdateAIConfig={handleUpdateAIConfig}
           />
         )}
 

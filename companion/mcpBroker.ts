@@ -128,13 +128,23 @@ export class McpBroker {
   private async session(appId: string) {
     if (!Object.prototype.hasOwnProperty.call(this.paths, appId)) throw new Error('No MCP CLI is configured for this application.');
     let s = this.sessions.get(appId); if (s) return s;
-    const executable = this.paths[appId]; await access(executable);
+    s = await this.createSession(appId); this.sessions.set(appId, s); return s;
+  }
+  private async createSession(appId: string) {
+    if (!Object.prototype.hasOwnProperty.call(this.paths, appId)) throw new Error('No MCP CLI is configured for this application.');
+    const executable = this.paths[appId];
+    await access(executable);
     const args = ['mcp'];
     if (this.readRoot) args.push('--automation-read-root', this.readRoot);
     if (this.writeRoot) args.push('--automation-write-root', this.writeRoot);
-    s = new McpSession(executable, args); this.sessions.set(appId, s); return s;
+    return new McpSession(executable, args);
   }
-  async listTools(appId: string) { return (await this.session(appId)).listTools(); }
+  async listTools(appId: string) {
+    const active = this.sessions.get(appId);
+    if (active) return active.listTools();
+    const temporary = await this.createSession(appId);
+    try { return await temporary.listTools(); } finally { temporary.dispose(); }
+  }
   async callTool(appId: string, name: string, args: unknown) { return (await this.session(appId)).callTool(name, args); }
   close() { for (const s of this.sessions.values()) s.dispose(); this.sessions.clear(); }
 }

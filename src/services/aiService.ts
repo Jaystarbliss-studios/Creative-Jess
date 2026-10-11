@@ -17,8 +17,16 @@ export interface RegisteredTool {
 /** Native launching is the only static action. Editor tools are discovered from paired MCP CLIs at runtime and validated before dispatch. */
 export const REGISTERED_AI_TOOLS: RegisteredTool[] = [{ id: 'open_application', name: 'Launch native application', description: 'Propose starting a configured native app through the paired local companion. Requires explicit approval and does not edit files.', targetAppId: 'local-companion', parameters: [{ name: 'appId', type: 'string', description: 'Stable application ID from the workspace catalog.', required: true }], isConsequential: true }];
 
-function functionNameForTool(tool: McpToolDescriptor): string {
-  return ('mcp_' + tool.appId + '_' + tool.name).replace(/[^a-zA-Z0-9_]/g, '_').slice(0, 60);
+function functionNameForTool(tool: { appId: string; name: string }): string {
+  const identity = tool.appId + '_' + tool.name;
+  let hash = 2166136261;
+  for (let i = 0; i < identity.length; i++) {
+    hash ^= identity.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  const suffix = (hash >>> 0).toString(16).padStart(8, '0');
+  const prefix = ('mcp_' + identity).replace(/[^a-zA-Z0-9_]/g, '_').slice(0, 50);
+  return prefix + '_' + suffix;
 }
 
 function geminiSchema(input: unknown, depth = 0): Record<string, unknown> {

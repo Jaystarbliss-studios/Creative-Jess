@@ -13,7 +13,15 @@ app.use(express.json({ limit: '32kb' }));
 type ClientMcpTool = { appId: string; name: string; description?: string; inputSchema?: Record<string, unknown> };
 
 function mcpFunctionName(tool: ClientMcpTool): string {
-  return ('mcp_' + tool.appId + '_' + tool.name).replace(/[^a-zA-Z0-9_]/g, '_').slice(0, 60);
+  const identity = tool.appId + '_' + tool.name;
+  let hash = 2166136261;
+  for (let i = 0; i < identity.length; i++) {
+    hash ^= identity.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  const suffix = (hash >>> 0).toString(16).padStart(8, '0');
+  const prefix = ('mcp_' + identity).replace(/[^a-zA-Z0-9_]/g, '_').slice(0, 50);
+  return prefix + '_' + suffix;
 }
 
 function toGeminiSchema(input: unknown, depth = 0): Record<string, unknown> {

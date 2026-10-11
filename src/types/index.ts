@@ -75,6 +75,7 @@ export interface ProjectAsset {
   thumbnailUrl?: string;
   dimensions?: string;
   contentData?: string;
+  contentStoredLocally?: boolean;
   metadata?: Record<string, string | number | boolean>;
 }
 

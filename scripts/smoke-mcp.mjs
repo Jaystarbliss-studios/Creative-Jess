@@ -115,6 +115,19 @@ try {
       const savedText = await readFile(outputPath, 'utf8');
       if (!savedText.includes(marker)) throw new Error('GridCraft acceptance failed: saved CSV does not contain the cell marker.');
       acceptanceResult = { scenario: 'gridcraft-create-write-read-save-csv', verified: true, outputFormat: 'csv', outputInsideTemporaryDirectory: true };
+    } else if (acceptance === 'deckcraft') {
+      const marker = 'Creative Jess DeckCraft acceptance ' + Date.now();
+      await callTool('new_presentation', {});
+      await callTool('add_text_box', { x: 40, y: 90, w: 600, h: 100, text: marker });
+      const slide = await callTool('inspect_slide', { index: 0 });
+      if (!slide.includes(marker)) throw new Error('DeckCraft acceptance failed: slide inspection did not return the inserted text.');
+      const outputPath = path.join(temp, 'creative-jess-acceptance.pptx');
+      await callTool('export', { path: outputPath, format: 'pptx' });
+      const savedBytes = await readFile(outputPath);
+      if (savedBytes.length < 100 || savedBytes[0] !== 0x50 || savedBytes[1] !== 0x4b) {
+        throw new Error('DeckCraft acceptance failed: exported PPTX is missing or does not have a ZIP/PPTX signature.');
+      }
+      acceptanceResult = { scenario: 'deckcraft-create-add-text-inspect-export-pptx', verified: true, outputFormat: 'pptx', outputInsideTemporaryDirectory: true, outputBytes: savedBytes.length };
     } else {
       throw new Error('Unsupported acceptance scenario: ' + acceptance);
     }

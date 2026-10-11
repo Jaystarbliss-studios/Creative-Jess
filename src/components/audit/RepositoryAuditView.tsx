@@ -26,6 +26,10 @@ export const RepositoryAuditView: React.FC = () => {
 
   const getStatusBadge = (status: IntegrationStatus) => {
     switch (status) {
+      case 'not_inspected': return { label: 'Not inspected', bg: 'bg-amber-500/10', text: 'text-amber-400', border: 'border-amber-500/25' };
+      case 'build_attempted': return { label: 'Build attempted', bg: 'bg-slate-500/15', text: 'text-slate-400', border: 'border-slate-500/30' };
+      case 'build_passed': return { label: 'Build passed', bg: 'bg-sky-500/15', text: 'text-sky-400', border: 'border-sky-500/30' };
+      case 'integration_in_progress': return { label: 'Integration in progress', bg: 'bg-violet-500/15', text: 'text-violet-400', border: 'border-violet-500/30' };
       case 'integrated_verified':
         return { label: 'Integrated & Verified', bg: 'bg-emerald-500/15', text: 'text-emerald-400', border: 'border-emerald-500/30' };
       case 'smoke_test_passed':
@@ -52,7 +56,7 @@ export const RepositoryAuditView: React.FC = () => {
           Repository Health & Capability Matrix
         </h1>
         <p className="text-sm text-[var(--text-secondary)] max-w-3xl leading-relaxed">
-          Authoritative technical audit across all 21 Storytold ecosystem repositories. Confirms language editions, crate manifests, licensing constraints, CLI/MCP interfaces, and runtime environments.
+          Initial inventory of 21 Storytold ecosystem repositories. Upstream source, build targets, licenses, and automation interfaces still require repository-by-repository verification.
         </p>
       </div>
 
@@ -64,13 +68,13 @@ export const RepositoryAuditView: React.FC = () => {
             <span>AI Studio Cloud Sandbox Environment Constraints</span>
           </div>
           <p className="text-[var(--text-secondary)] leading-relaxed">
-            Linux container has Node.js/TypeScript and HTML5 WebAssembly capability. Native Rust compiler (rustc 1.95) and Windows desktop binaries require the Craft Local Companion on Windows.
+            This view is a conservative tracking baseline. A repository is not considered inspected, built, or integrated until source review and real tests have been recorded in a compatible environment.
           </p>
         </div>
         <div className="flex items-center gap-4 shrink-0 font-mono text-[11px] text-[var(--text-muted)]">
-          <div>Repositories: <span className="text-[var(--text-primary)] font-semibold">21 / 21 Inspected</span></div>
+          <div>Repositories: <span className="text-[var(--text-primary)] font-semibold">{CRAFT_APPS.filter((item) => item.status === 'inspected').length} / {CRAFT_APPS.length} source inspected</span></div>
           <span>·</span>
-          <div>Licenses: <span className="text-[var(--text-primary)] font-semibold">MIT / Apache 2.0</span></div>
+          <div>Licenses: <span className="text-[var(--text-primary)] font-semibold">Not yet verified</span></div>
         </div>
       </div>
 
@@ -88,7 +92,7 @@ export const RepositoryAuditView: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto">
-          {['all', 'integrated_verified', 'smoke_test_passed', 'inspected'].map((status) => (
+          {['all', 'not_inspected', 'inspected', 'build_attempted', 'build_passed', 'smoke_test_passed', 'integrated_verified', 'blocked', 'unsupported_in_environment'].map((status) => (
             <button
               key={status}
               onClick={() => setStatusFilter(status)}
@@ -98,7 +102,7 @@ export const RepositoryAuditView: React.FC = () => {
                   : 'bg-[var(--bg-surface)] text-[var(--text-secondary)] border border-[var(--border-subtle)] hover:text-[var(--text-primary)]'
               }`}
             >
-              {status === 'all' ? 'All (21)' : status.replace('_', ' ')}
+              {status === 'all' ? 'All (21)' : status.replaceAll('_', ' ')}
             </button>
           ))}
         </div>

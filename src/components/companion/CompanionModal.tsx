@@ -23,7 +23,8 @@ export const CompanionModal: React.FC<CompanionModalProps> = ({
   onClose,
   companionState,
 }) => {
-  const [tokenInput, setTokenInput] = useState('craft-token-9876-secure');
+  const [tokenInput, setTokenInput] = useState('');
+  const [statusIsError, setStatusIsError] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [isPairing, setIsPairing] = useState(false);
 
@@ -33,7 +34,8 @@ export const CompanionModal: React.FC<CompanionModalProps> = ({
     setIsPairing(true);
     setStatusMessage(null);
     try {
-      const result = await companionService.simulatePairing(tokenInput);
+      const result = await companionService.pair(tokenInput);
+      setStatusIsError(!result.success);
       setStatusMessage(result.message);
     } finally {
       setIsPairing(false);
@@ -42,6 +44,7 @@ export const CompanionModal: React.FC<CompanionModalProps> = ({
 
   const handleDisconnect = () => {
     companionService.disconnect();
+    setStatusIsError(false);
     setStatusMessage('Disconnected from local companion.');
   };
 
@@ -84,7 +87,7 @@ export const CompanionModal: React.FC<CompanionModalProps> = ({
               <span className={`font-mono text-[11px] px-2 py-0.5 rounded ${
                 companionState.connected ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-400'
               }`}>
-                {companionState.connected ? 'CONNECTED & PAIRED' : 'DISCONNECTED'}
+                {companionState.connected && companionState.tokenPaired ? 'CONNECTED & PAIRED' : companionState.connected ? 'CONNECTED · NOT PAIRED' : 'DISCONNECTED'}
               </span>
             </div>
 
@@ -127,7 +130,7 @@ export const CompanionModal: React.FC<CompanionModalProps> = ({
           </div>
 
           {statusMessage && (
-            <div className="p-2.5 rounded bg-[var(--bg-elevated)] border border-emerald-500/40 text-emerald-400 text-[11px] font-mono flex items-center gap-2">
+            <div className={`p-2.5 rounded bg-[var(--bg-elevated)] border text-[11px] font-mono flex items-center gap-2 ${statusIsError ? 'border-rose-500/40 text-rose-400' : 'border-emerald-500/40 text-emerald-400'}`}>
               <CheckCircle2 size={13} />
               <span>{statusMessage}</span>
             </div>
@@ -136,7 +139,7 @@ export const CompanionModal: React.FC<CompanionModalProps> = ({
           {/* Allowlisted Binaries */}
           <div className="space-y-2">
             <span className="font-medium text-[var(--text-primary)]">
-              Allowlisted Companion Commands ({companionState.allowlistedCommands.length})
+              Commands reported by companion ({companionState.allowlistedCommands.length})
             </span>
             <div className="grid grid-cols-2 gap-1.5 font-mono text-[10px] text-[var(--text-secondary)]">
               {companionState.allowlistedCommands.map((cmd) => (

@@ -76,13 +76,13 @@ export const WorkspaceHome: React.FC<WorkspaceHomeProps> = ({
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
           <div className="space-y-2 max-w-2xl">
             <div className="text-xs font-mono text-[var(--text-muted)] tracking-wider uppercase">
-              Unified Operating Environment
+              Creative workspace · integration preview
             </div>
             <h1 className="text-2xl md:text-3xl font-semibold tracking-tight text-[var(--text-primary)]">
               Craft Workspace
             </h1>
             <p className="text-sm text-[var(--text-secondary)] leading-relaxed">
-              Cohesive studio environment unifying 21 creative applications and shared infrastructure across raster, vector, video, audio, CAD, publishing, and structured data.
+              A single workspace for the Storytold Craft ecosystem. Upstream builds and application integrations are still being audited.
             </p>
           </div>
 
@@ -95,7 +95,7 @@ export const WorkspaceHome: React.FC<WorkspaceHomeProps> = ({
             <span className="text-[var(--border-subtle)]">|</span>
             <div className="flex items-center gap-2">
               <Cpu size={14} className="text-[#B7A0FF]" />
-              <span>AI: {aiConfig.mode === 'cloud' ? 'Gemini 3.8' : 'Local'}</span>
+              <span>AI: {aiConfig.mode === 'cloud' ? (aiConfig.activeCloudConnected ? 'Cloud connected' : 'Cloud unverified') : (aiConfig.activeLocalConnected ? 'Local connected' : 'Local unverified')}</span>
             </div>
           </div>
         </div>
@@ -175,10 +175,10 @@ export const WorkspaceHome: React.FC<WorkspaceHomeProps> = ({
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[var(--border-subtle)] pb-3">
           <div>
             <h2 className="text-base font-semibold text-[var(--text-primary)]">
-              Integrated Creative Applications
+              Creative application previews
             </h2>
             <p className="text-xs text-[var(--text-muted)]">
-              Dedicated workspaces for each creative discipline, connected via shared projects and companion bridges.
+              Open a workspace preview or inspect its source. Previews are not the upstream applications.
             </p>
           </div>
 

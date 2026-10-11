@@ -42,7 +42,7 @@ export const AIWorkspace: React.FC<AIWorkspaceProps> = ({
       sender: 'assistant',
       timestamp: '14:30',
       mode: aiConfig.mode,
-      text: `Craft Intelligent Assistant ready. Connected to project "${activeProject.name}" with 6 registered application tools. All file operations and multi-tool workflows are validated against active application adapters.`,
+      text: 'AI workspace opened for project ' + activeProject.name + '. Provider connectivity and application tool execution are not yet verified. No app commands will be reported as successful unless a real adapter returns a validated result.',
     },
   ]);
   const [inputText, setInputText] = useState('');
@@ -108,7 +108,8 @@ export const AIWorkspace: React.FC<AIWorkspaceProps> = ({
             toolCall: {
               ...msg.toolCall,
               status: 'executed',
-              result: 'Operation approved by user and executed. New asset created in project.',
+              status: 'failed',
+              result: 'No operation was executed. This workspace has no verified tool adapter for this action.',
             },
           };
         }
@@ -137,14 +138,15 @@ export const AIWorkspace: React.FC<AIWorkspaceProps> = ({
 
   return (
     <div className="flex h-full w-full overflow-hidden bg-[var(--bg-workspace)]">
+      <div className="border-b border-[var(--border-subtle)] px-6 py-2 text-[11px] text-[var(--text-muted)]">Provider status is verified only after a successful request. AI responses do not execute application actions in this build.</div>
       {/* Main Conversation Feed */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Top Provider Bar */}
         <div className="h-12 shrink-0 border-b border-[var(--border-subtle)] bg-[var(--bg-surface)] px-6 flex items-center justify-between gap-4 text-xs">
           <div className="flex items-center gap-3">
-            <span className="font-semibold text-[var(--text-primary)]">AI Studio & Tool Dispatcher</span>
+            <span className="font-semibold text-[var(--text-primary)]">AI Workspace</span>
             <span className="text-[var(--text-muted)] font-mono text-[11px]">
-              Active: {aiConfig.mode === 'cloud' ? 'Google Gemini 3.8 Flash' : `Ollama (${aiConfig.localModel})`}
+              Active: {aiConfig.mode === 'cloud' ? (aiConfig.activeCloudConnected ? aiConfig.cloudModel : 'Cloud provider not verified') : `Ollama (${aiConfig.localModel})`}
             </span>
           </div>
 
@@ -274,7 +276,7 @@ export const AIWorkspace: React.FC<AIWorkspaceProps> = ({
               type="text"
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
-              placeholder='Try: "Prepare images in this project for presentation" or "Generate vector curve" or "Calculate spreadsheet summary"'
+              placeholder='Ask a question. Application actions remain disabled until a real adapter is verified.'
               className="flex-1 bg-[var(--bg-elevated)] border border-[var(--border-subtle)] rounded px-4 py-2.5 text-xs text-[var(--text-primary)] outline-none focus:border-[#B7A0FF] transition-colors"
             />
             <button

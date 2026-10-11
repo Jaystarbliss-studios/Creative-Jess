@@ -29,15 +29,7 @@ export const GenericCraftWorkspace: React.FC<GenericCraftWorkspaceProps> = ({
   const [isRunning, setIsRunning] = useState<boolean>(false);
 
   const handleLaunchViaCompanion = () => {
-    setIsRunning(true);
-    setTimeout(() => {
-      setIsRunning(false);
-      if (companionState.connected) {
-        setExecutionOutput(`[COMPANION 127.0.0.1:9876]\n> Launching native process: ${app.repoName}.exe\n> Process ID: 8941 initialized.\n> Shared project memory mapped.\nApplication running natively in desktop window.`);
-      } else {
-        setExecutionOutput(`[BRIDGE NOTICE]\nCraft Local Companion is currently disconnected.\nTo launch the native Windows desktop binary for ${app.name}, start the companion background daemon on 127.0.0.1:9876 and verify the security token.`);
-      }
-    }, 600);
+    setExecutionOutput('No command was executed. This repository has no verified launch adapter yet. Review its source and implement a documented adapter before enabling native launch.');
   };
 
   return (
@@ -63,7 +55,7 @@ export const GenericCraftWorkspace: React.FC<GenericCraftWorkspaceProps> = ({
               className="flex items-center gap-1.5 px-3 py-1 rounded bg-[#B7A0FF] text-[#101114] hover:bg-[#c8b6ff] transition-colors font-medium text-xs disabled:opacity-50"
             >
               <Play size={12} />
-              <span>{isRunning ? 'Launching...' : 'Launch via Companion'}</span>
+              <span>{isRunning ? 'Checking...' : 'Launch not configured'}</span>
             </button>
           </div>
         </div>

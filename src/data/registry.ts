@@ -405,7 +405,7 @@ export const CRAFT_APPS: CraftApp[] = [
     repoUrl: 'https://github.com/storytold/craft-fonts.git',
     category: 'platform_services',
     tagline: 'Typography discovery, font parsing & licensing manager',
-    description: 'Reusable font assets and utilities. Review each font's license and redistribution requirements before bundling assets.',
+    description: 'Reusable font assets and utilities. Review font licensing and redistribution requirements before bundling assets.',
     version: 'Unknown',
     license: 'Not verified',
     edition: 'Not verified',

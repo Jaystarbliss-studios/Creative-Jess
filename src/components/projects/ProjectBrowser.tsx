@@ -17,6 +17,27 @@ import {
   ExternalLink,
 } from 'lucide-react';
 
+interface LocalWritableFile {
+  write(data: Blob): Promise<void>;
+  close(): Promise<void>;
+}
+interface LocalFileHandle {
+  createWritable(): Promise<LocalWritableFile>;
+}
+interface LocalDirectoryHandle {
+  getDirectoryHandle(name: string, options: { create: boolean }): Promise<LocalDirectoryHandle>;
+  getFileHandle(name: string, options?: { create?: boolean }): Promise<LocalFileHandle>;
+}
+interface DirectoryPickerWindow extends Window {
+  showDirectoryPicker?: () => Promise<LocalDirectoryHandle>;
+}
+
+function safeFolderSegment(value: string): string {
+  const cleaned = value.replace(/[<>:"/\\|?*\u0000-\u001F]/g, '_').replace(/[. ]+$/g, '').slice(0, 100);
+  if (!cleaned || /^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])$/i.test(cleaned)) return 'CraftProject';
+  return cleaned;
+}
+
 interface ProjectBrowserProps {
   projects: Project[];
   activeProject: Project;
@@ -54,6 +75,7 @@ export const ProjectBrowser: React.FC<ProjectBrowserProps> = ({
   const [newProjectDesc, setNewProjectDesc] = useState('');
   const [importStatus, setImportStatus] = useState<{ success: boolean; message: string } | null>(null);
   const [isImporting, setIsImporting] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const formatFileSize = (bytes: number) => {
@@ -109,6 +131,47 @@ export const ProjectBrowser: React.FC<ProjectBrowserProps> = ({
       setImportStatus({ success: false, message: 'File was not added because browser storage failed. ' + (error instanceof Error ? error.message : 'Unknown storage error') });
     } finally {
       setIsImporting(false);
+    }
+  };
+
+  const handleExportProjectToFolder = async () => {
+    const picker = (window as DirectoryPickerWindow).showDirectoryPicker;
+    if (!picker) {
+      setImportStatus({ success: false, message: 'This browser does not support folder export. Use a current desktop version of Chrome or Edge, or download each file individually.' });
+      return;
+    }
+    setIsExporting(true);
+    setImportStatus(null);
+    try {
+      const chosenRoot = await picker.call(window);
+      const folderName = safeFolderSegment(activeProject.name) + '-' + new Date().toISOString().replace(/[:.]/g, '-');
+      const projectFolder = await chosenRoot.getDirectoryHandle(folderName, { create: true });
+      let exported = 0;
+      let missing = 0;
+      for (const asset of activeProject.assets) {
+        if (!asset.contentStoredLocally) { missing++; continue; }
+        const stored = await getAssetFile(asset.id);
+        if (!stored) { missing++; continue; }
+        const fileName = safeFolderSegment(stored.name);
+        const fileHandle = await projectFolder.getFileHandle(fileName, { create: true });
+        const writable = await fileHandle.createWritable();
+        await writable.write(stored.blob);
+        await writable.close();
+        exported++;
+      }
+      if (exported === 0) {
+        setImportStatus({ success: false, message: 'No imported file bytes were found to export. Import real files into this project first.' });
+      } else {
+        setImportStatus({ success: true, message: 'Exported ' + exported + ' file(s) to the selected folder under ' + folderName + (missing ? '; skipped ' + missing + ' sample or unavailable file record(s).' : '.') + ' If you selected the configured CraftProjects folder, the exported files are available to the scoped MCP tools.' });
+      }
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        setImportStatus({ success: false, message: 'Folder selection was cancelled. No files were exported.' });
+      } else {
+        setImportStatus({ success: false, message: 'Could not export project files. ' + (error instanceof Error ? error.message : 'Unknown folder access error.') });
+      }
+    } finally {
+      setIsExporting(false);
     }
   };
 
@@ -202,9 +265,14 @@ export const ProjectBrowser: React.FC<ProjectBrowserProps> = ({
           </div>
           <div>
             <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileImport} aria-label="Choose a file to import" />
-            <button onClick={() => fileInputRef.current?.click()} disabled={isImporting} className="inline-flex items-center gap-2 border border-[var(--border-subtle)] px-3 py-2 text-xs text-[var(--text-primary)] hover:bg-[var(--bg-surface)] disabled:opacity-50">
-              <Upload size={13} /> {isImporting ? 'Importing…' : 'Import file'}
-            </button>
+            <div className="flex flex-wrap gap-2">
+              <button onClick={() => void handleExportProjectToFolder()} disabled={isExporting || isImporting || activeProject.assets.length === 0} className="inline-flex items-center gap-2 border border-[var(--border-subtle)] px-3 py-2 text-xs text-[var(--text-primary)] hover:bg-[var(--bg-surface)] disabled:opacity-50">
+                <FolderOpen size={13} /> {isExporting ? 'Exporting…' : 'Export to folder'}
+              </button>
+              <button onClick={() => fileInputRef.current?.click()} disabled={isImporting || isExporting} className="inline-flex items-center gap-2 border border-[var(--border-subtle)] px-3 py-2 text-xs text-[var(--text-primary)] hover:bg-[var(--bg-surface)] disabled:opacity-50">
+                <Upload size={13} /> {isImporting ? 'Importing…' : 'Import file'}
+              </button>
+            </div>
           </div>
         </div>
         <div className="divide-y divide-[var(--border-subtle)] border-y border-[var(--border-subtle)]">

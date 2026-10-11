@@ -40,6 +40,42 @@ jobs:
             cli_package: designcraft-cli
             desktop_package: designcraft
             supports_roots: false
+          - repository: pdfcraft
+            cli_package: pdfcraft-cli
+            desktop_package: pdfcraft
+            supports_roots: false
+          - repository: wordcraft
+            cli_package: wordcraft-cli
+            desktop_package: wordcraft
+            supports_roots: false
+          - repository: deckcraft
+            cli_package: deckcraft-cli
+            desktop_package: deckcraft
+            supports_roots: false
+          - repository: gridcraft
+            cli_package: gridcraft-cli
+            desktop_package: gridcraft
+            supports_roots: false
+          - repository: soundcraft
+            cli_package: soundcraft-cli
+            desktop_package: soundcraft
+            supports_roots: false
+          - repository: cadcraft
+            cli_package: cadcraft-cli
+            desktop_package: cadcraft
+            supports_roots: false
+          - repository: effectcraft
+            cli_package: effectcraft-cli
+            desktop_package: effectcraft
+            supports_roots: false
+          - repository: filmcraft
+            cli_package: filmcraft-cli
+            desktop_package: filmcraft
+            supports_roots: false
+          - repository: lightcraft
+            cli_package: lightcraft-cli
+            desktop_package: lightcraft
+            supports_roots: false
     steps:
       - name: Checkout integration workspace
         uses: actions/checkout@v4

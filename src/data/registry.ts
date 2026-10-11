@@ -24,9 +24,7 @@ export const CRAFT_APPS: CraftApp[] = [
     supportedFormats: [],
     status: 'not_inspected',
     statusNotes: 'Upstream source, license, version, supported formats, runtime, and automation interfaces have not yet been verified in this workspace. The workspace view is a prototype, not the upstream application.',
-    cliCommand: 'photocraft-cli --input input.png --filter sharpen --output out.png',
     color: '#818CF8',
-    isPilot: true,
   },
   {
     id: 'vectorcraft',
@@ -49,9 +47,7 @@ export const CRAFT_APPS: CraftApp[] = [
     supportedFormats: [],
     status: 'not_inspected',
     statusNotes: 'Upstream source, license, version, supported formats, runtime, and automation interfaces have not yet been verified in this workspace. The workspace view is a prototype, not the upstream application.',
-    cliCommand: 'vectorcraft-cli render --input design.vec --format svg --output design.svg',
     color: '#38BDF8',
-    isPilot: true,
   },
   {
     id: 'artcraft',
@@ -120,7 +116,6 @@ export const CRAFT_APPS: CraftApp[] = [
     supportedFormats: [],
     status: 'not_inspected',
     statusNotes: 'Upstream source, license, version, supported formats, runtime, and automation interfaces have not yet been verified in this workspace. The workspace view is a prototype, not the upstream application.',
-    cliCommand: 'lightcraft-cli develop --profile neutral --exposure +0.5 input.dng output.jpg',
     color: '#FBBF24',
   },
 
@@ -146,10 +141,7 @@ export const CRAFT_APPS: CraftApp[] = [
     supportedFormats: [],
     status: 'not_inspected',
     statusNotes: 'Upstream source, license, version, supported formats, runtime, and automation interfaces have not yet been verified in this workspace. The workspace view is a prototype, not the upstream application.',
-    cliCommand: 'filmcraft-cli mcp --bridge 127.0.0.1:9876',
-    mcpBridge: 'filmcraft-cli mcp --bridge 127.0.0.1:9876',
     color: '#FB7185',
-    isPilot: true,
   },
   {
     id: 'effectcraft',
@@ -172,7 +164,6 @@ export const CRAFT_APPS: CraftApp[] = [
     supportedFormats: [],
     status: 'not_inspected',
     statusNotes: 'Upstream source, license, version, supported formats, runtime, and automation interfaces have not yet been verified in this workspace. The workspace view is a prototype, not the upstream application.',
-    cliCommand: 'effectcraft-cli render --comp scene.fx --frames 1-120 --out out.mp4',
     color: '#F43F5E',
   },
   {
@@ -196,9 +187,7 @@ export const CRAFT_APPS: CraftApp[] = [
     supportedFormats: [],
     status: 'not_inspected',
     statusNotes: 'Upstream source, license, version, supported formats, runtime, and automation interfaces have not yet been verified in this workspace. The workspace view is a prototype, not the upstream application.',
-    cliCommand: 'soundcraft-cli mixdown --project track.sound --output master.wav',
     color: '#4ADE80',
-    isPilot: true,
   },
 
   // --- Design & Publishing ---
@@ -223,9 +212,7 @@ export const CRAFT_APPS: CraftApp[] = [
     supportedFormats: [],
     status: 'not_inspected',
     statusNotes: 'Upstream source, license, version, supported formats, runtime, and automation interfaces have not yet been verified in this workspace. The workspace view is a prototype, not the upstream application.',
-    cliCommand: 'wordcraft-cli compile --in brief.word --out brief.docx',
     color: '#2DD4BF',
-    isPilot: true,
   },
   {
     id: 'designcraft',
@@ -248,7 +235,6 @@ export const CRAFT_APPS: CraftApp[] = [
     supportedFormats: [],
     status: 'not_inspected',
     statusNotes: 'Upstream source, license, version, supported formats, runtime, and automation interfaces have not yet been verified in this workspace. The workspace view is a prototype, not the upstream application.',
-    cliCommand: 'designcraft-cli export --project mag.design --format pdf --cmyk',
     color: '#F472B6',
   },
   {
@@ -272,7 +258,6 @@ export const CRAFT_APPS: CraftApp[] = [
     supportedFormats: [],
     status: 'not_inspected',
     statusNotes: 'Upstream source, license, version, supported formats, runtime, and automation interfaces have not yet been verified in this workspace. The workspace view is a prototype, not the upstream application.',
-    cliCommand: 'deckcraft-cli build --deck pitch.deck --output pitch.pdf',
     color: '#E879F9',
   },
   {
@@ -296,7 +281,6 @@ export const CRAFT_APPS: CraftApp[] = [
     supportedFormats: [],
     status: 'not_inspected',
     statusNotes: 'Upstream source, license, version, supported formats, runtime, and automation interfaces have not yet been verified in this workspace. The workspace view is a prototype, not the upstream application.',
-    cliCommand: 'pdfcraft-cli merge file1.pdf file2.pdf -o merged.pdf',
     color: '#EF4444',
   },
 
@@ -322,9 +306,7 @@ export const CRAFT_APPS: CraftApp[] = [
     supportedFormats: [],
     status: 'not_inspected',
     statusNotes: 'Upstream source, license, version, supported formats, runtime, and automation interfaces have not yet been verified in this workspace. The workspace view is a prototype, not the upstream application.',
-    cliCommand: 'cadcraft-cli convert --in part.dxf --out part.svg',
     color: '#0EA5E9',
-    isPilot: true,
   },
   {
     id: 'gridcraft',
@@ -347,7 +329,6 @@ export const CRAFT_APPS: CraftApp[] = [
     supportedFormats: [],
     status: 'not_inspected',
     statusNotes: 'Upstream source, license, version, supported formats, runtime, and automation interfaces have not yet been verified in this workspace. The workspace view is a prototype, not the upstream application.',
-    cliCommand: 'gridcraft-cli compute sheet.grid --eval',
     color: '#10B981',
   },
 

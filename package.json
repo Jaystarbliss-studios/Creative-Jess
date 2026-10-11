@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "clean": "node -e \"const fs=require('node:fs'); for (const p of ['dist','server.js']) fs.rmSync(p,{recursive:true,force:true})\"",
     "lint": "tsc --noEmit",
-    "start": "tsx server.ts"
+    "start": "tsx server.ts",
+    "test": "node --import tsx --test tests/adapterRegistry.test.ts"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

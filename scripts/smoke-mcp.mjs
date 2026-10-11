@@ -77,7 +77,14 @@ try {
   child.stdin.write(JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized' }) + '\n');
   const catalog = await request('tools/list', {});
   if (!Array.isArray(catalog.tools) || catalog.tools.length === 0) throw new Error('MCP tools/list returned no tools.');
-  console.log(JSON.stringify({ ok: true, serverInfo: init.serverInfo, protocolVersion: init.protocolVersion, toolCount: catalog.tools.length, firstTools: catalog.tools.slice(0, 8).map((tool) => tool.name), scopedRoots: supportsRoots }));
+  let readOnlyToolCall = 'skipped: no zero-argument read-only tool was advertised';
+  const safeTool = catalog.tools.find((tool) => tool && typeof tool.name === 'string' && tool.annotations?.readOnlyHint === true && (!Array.isArray(tool.inputSchema?.required) || tool.inputSchema.required.length === 0));
+  if (safeTool) {
+    const call = await request('tools/call', { name: safeTool.name, arguments: {} });
+    if (call.isError === true) throw new Error('Read-only MCP tool call failed: ' + safeTool.name);
+    readOnlyToolCall = safeTool.name;
+  }
+  console.log(JSON.stringify({ ok: true, serverInfo: init.serverInfo, protocolVersion: init.protocolVersion, toolCount: catalog.tools.length, firstTools: catalog.tools.slice(0, 8).map((tool) => tool.name), readOnlyToolCall, scopedRoots: supportsRoots }));
   child.stdin.end();
   child.kill();
 } catch (error) {

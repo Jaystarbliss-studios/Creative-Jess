@@ -71,7 +71,7 @@ Set-ExecutionPolicy -Scope Process Bypass
 npm run companion
 ```
 
-The script requires Git, Node.js, and Rust 1.95 or newer. It does not overwrite existing checkouts and continues past per-app build failures. ArtCraft is very large and excluded by default; add -IncludeArtCraft to opt in. This is a build aid, not a verification claim: inspect each log, confirm the generated executable path, run the app, and test a real create/open/edit/save/export workflow. ArtCraft Services and Terraform are deliberately excluded because they require separate security/deployment review.
+The script requires Git, Node.js, and Rust 1.95 or newer. It does not overwrite existing checkouts and continues past per-app build failures. ArtCraft is very large and excluded by default; add -IncludeArtCraft to opt in. This is a build aid, not a verification claim: inspect each log, confirm the generated executable path, run the app, and test a real create/open/edit/save/export workflow. The bootstrap also creates `.upstream/CraftProjects` and `.upstream/CraftProjects/exports`, and configures those scoped roots only for PhotoCraft and VectorCraft when their CLIs are found. **Files imported into the browser workspace are stored in browser IndexedDB and are not automatically synchronized to that folder**; copy/download working files into the local project root before asking an MCP tool to operate on them. ArtCraft Services and Terraform are deliberately excluded because they require separate security/deployment review.
 
 ## Upstream repositories
 

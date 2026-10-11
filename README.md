@@ -64,4 +64,4 @@ The application directory references repositories under the storytold GitHub org
 7. Show actual build and test status; never manufacture successful results.
 8. Treat local workspace editor screens as previews until connected to and validated against upstream code.
 
-See docs/INTEGRATION_STATUS.md for the staged integration plan and verification baseline.
+See docs/REPOSITORY_DISCOVERY.md for the GitHub metadata snapshot and license/size caveats. See docs/INTEGRATION_STATUS.md for the staged integration plan and verification baseline.

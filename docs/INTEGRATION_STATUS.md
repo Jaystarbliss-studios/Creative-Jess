@@ -8,6 +8,7 @@ Last updated: 2026-10-11
 - Default branch at audit start: main
 - Workspace stack observed: React, TypeScript, Vite, Tailwind CSS.
 - Upstream catalog size: 21 repositories.
+- GitHub repository metadata checked for all 21 catalog entries; see REPOSITORY_DISCOVERY.md. This is metadata discovery only, not source inspection.
 - Upstream repositories built and smoke-tested from this workspace: 0 verified by this audit.
 - Local companion: loopback-only Node/Express launcher added; its health/auth rejection smoke test passes in CI. It launches only explicitly configured executables and is not an editor API.
 - File import: Project Browser uses IndexedDB to store real selected file bytes and localStorage for project metadata. Download of imported originals is implemented. Suggested app mappings do not imply format compatibility.
@@ -16,7 +17,7 @@ Last updated: 2026-10-11
 - Integration shell validation: passed in GitHub Actions on commit e28735de020adf925b3a788dd3370431255cb3dc (TypeScript check, adapter safety tests, local companion health/pairing/authorization test, production frontend build).
 - Upstream app builds and smoke tests: still not run; shell CI does not prove upstream integration.
 
-The earlier catalog contained specific versions, licenses, crate counts, file formats, and statements such as “integrated and verified” without supporting build logs or test evidence in this repository. Catalog metadata has been made conservative until each upstream repository is audited.
+The earlier catalog contained specific versions, licenses, crate counts, file formats, and statements such as “integrated and verified” without supporting build logs or test evidence in this repository. Catalog metadata has been made conservative until each upstream repository is audited. GitHub metadata reports no SPDX license for artcraftx and craft-repo-status-app and reports NOASSERTION for artcraft-services; resolve these before redistribution/reuse. ArtCraft and ArtCraft Services report unusually large repository sizes, so inspect manifests and asset/LFS/history structure before a full clone.
 
 The integration shell now includes a typed adapter registry. It fails closed when an app adapter or capability is missing, validates arguments when a validator is supplied, checks adapter health before execution, and validates result shape. Its automated tests pass. The local companion can launch configured native application processes using a fixed open-app command and app-ID-to-path mapping. No editing/automation adapters are registered yet.
 

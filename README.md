@@ -14,6 +14,8 @@ The project intentionally uses conservative integration statuses. Do not change 
 - Dark/light theme tokens.
 - Application and supporting-repository directory.
 - Initial project browser and workspace previews.
+- Browser-local persistence for project metadata, active project selection, and theme preferences.
+- Typed, fail-closed adapter registry with tests; no upstream app adapters are registered yet.
 - Cloud/local AI mode selection.
 - Cloud AI chat through a server-side Gemini API route when GEMINI_API_KEY is configured as a server-side secret.
 - Ollama-compatible local chat requests, subject to local runtime and browser network/CORS policy.
@@ -30,7 +32,7 @@ Use a supported Node.js release for the installed Vite version.
 4. Run npm run lint and npm run build before pushing.
 5. For production, build the frontend and run npm start with NODE_ENV=production.
 
-The GitHub connector session used for these edits does not provide a Node runtime, so no local build or type-check result is claimed by these commits. CI should provide that verification.
+GitHub Actions on the integration branch runs TypeScript checking, adapter safety tests, and a production frontend build. These checks passed on commit e3e50f80eefbf9d1d9b270aad0ef69130bae1dc2. This verifies the workspace shell only; it does not compile or smoke-test the 21 upstream applications.
 
 ## Security notes
 

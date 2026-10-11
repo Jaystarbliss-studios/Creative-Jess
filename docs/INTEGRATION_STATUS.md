@@ -12,9 +12,12 @@ Last updated: 2026-10-11
 - Local companion source/runtime: not present or verified in this repository.
 - Cloud AI route: server-side Gemini route added; requires GEMINI_API_KEY and a protected deployment.
 - Local AI: Ollama-compatible browser request can be attempted, but success depends on the local runtime and browser network policy.
-- Build and lint results for the current edits: not run in this connector environment.
+- Integration shell validation: passed in GitHub Actions on commit e3e50f80eefbf9d1d9b270aad0ef69130bae1dc2 (TypeScript check, adapter safety tests, production frontend build).
+- Upstream app builds and smoke tests: still not run; shell CI does not prove upstream integration.
 
 The earlier catalog contained specific versions, licenses, crate counts, file formats, and statements such as “integrated and verified” without supporting build logs or test evidence in this repository. Catalog metadata has been made conservative until each upstream repository is audited.
+
+The integration shell now includes a typed adapter registry. It fails closed when an app adapter or capability is missing, validates arguments when a validator is supplied, checks adapter health before execution, and validates result shape. Its automated tests pass. No upstream adapters are registered yet.
 
 ## Status definitions
 

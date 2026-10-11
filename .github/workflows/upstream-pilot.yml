@@ -100,18 +100,26 @@ jobs:
       - name: Build desktop app and CLI
         shell: pwsh
         run: |
-          cargo build --manifest-path ".upstream/${{ matrix.repository }}/Cargo.toml" --release -p "${{ matrix.desktop_package }}" -p "${{ matrix.cli_package }}"
+          $logFile = ".upstream/${{ matrix.repository }}/verification.log"
+          "=== rustc ===" | Tee-Object -FilePath $logFile
+          rustc --version 2>&1 | Tee-Object -FilePath $logFile -Append
+          cargo --version 2>&1 | Tee-Object -FilePath $logFile -Append
+          "=== cargo build desktop + CLI ===" | Tee-Object -FilePath $logFile -Append
+          cargo build --manifest-path ".upstream/${{ matrix.repository }}/Cargo.toml" --release -p "${{ matrix.desktop_package }}" -p "${{ matrix.cli_package }}" 2>&1 | Tee-Object -FilePath $logFile -Append
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Smoke-test actual MCP server
         shell: pwsh
         env:
           INCLUDE_ROOT_FLAGS: ${{ (github.event_name == 'push' || inputs.include_scoped_filesystem_roots) && matrix.supports_roots }}
         run: |
+          $logFile = ".upstream/${{ matrix.repository }}/verification.log"
           $binary = (Resolve-Path ".upstream/${{ matrix.repository }}/target/release/${{ matrix.cli_package }}.exe").Path
           if ($env:INCLUDE_ROOT_FLAGS -eq 'true') {
-            node scripts/smoke-mcp.mjs --binary $binary --scoped-roots
+            node scripts/smoke-mcp.mjs --binary $binary --scoped-roots 2>&1 | Tee-Object -FilePath $logFile -Append
           } else {
-            node scripts/smoke-mcp.mjs --binary $binary
+            node scripts/smoke-mcp.mjs --binary $binary 2>&1 | Tee-Object -FilePath $logFile -Append
           }
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Upload build metadata and logs
         if: always()
         uses: actions/upload-artifact@v4
@@ -119,4 +127,5 @@ jobs:
           name: upstream-${{ matrix.repository }}-verification
           path: |
             .upstream/${{ matrix.repository }}/cargo-metadata.json
+            .upstream/${{ matrix.repository }}/verification.log
           if-no-files-found: warn

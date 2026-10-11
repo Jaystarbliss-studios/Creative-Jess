@@ -238,7 +238,7 @@ export const AIWorkspace: React.FC<AIWorkspaceProps> = ({
                   <div className="mt-3.5 pt-3 border-t border-[var(--border-subtle)] space-y-2">
                     <div className="flex items-center justify-between text-[11px] font-mono">
                       <span className="text-[#B7A0FF] font-semibold">
-                        TOOL: {msg.toolCall.toolName}
+                        TOOL: {msg.toolCall.toolName === 'mcp_tool' ? String(msg.toolCall.parameters.appId) + ' · ' + String(msg.toolCall.parameters.toolName) : msg.toolCall.toolName}
                       </span>
                       <span className={`text-[10px] px-1.5 py-0.5 rounded font-mono ${
                         msg.toolCall.status === 'executed' ? 'bg-emerald-500/20 text-emerald-400' :
@@ -264,7 +264,7 @@ export const AIWorkspace: React.FC<AIWorkspaceProps> = ({
                           className="flex items-center gap-1 px-3 py-1.5 rounded bg-emerald-500 hover:bg-emerald-600 text-white font-medium text-xs transition-colors"
                         >
                           <Check size={13} />
-                          <span>Approve & launch</span>
+                          <span>{msg.toolCall.toolName === 'mcp_tool' ? 'Approve & run' : 'Approve & launch'}</span>
                         </button>
                         <button
                           onClick={() => handleRejectTool(msg.id)}

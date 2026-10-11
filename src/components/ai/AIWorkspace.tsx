@@ -120,7 +120,8 @@ export const AIWorkspace: React.FC<AIWorkspaceProps> = ({
     setIsProcessing(true);
 
     try {
-      const localFolderCandidate = localStorage.getItem('craft-workspace:local-export-folder:' + activeProject.id);
+      let localFolderCandidate: string | null = null;
+      try { localFolderCandidate = localStorage.getItem('craft-workspace:local-export-folder:' + activeProject.id); } catch { /* Continue without optional local-folder context. */ }
       const importedFiles = activeProject.assets.filter((asset) => asset.contentStoredLocally).map((asset) => asset.name).slice(0, 40);
       const projectContext = [
         'Project: ' + activeProject.name,

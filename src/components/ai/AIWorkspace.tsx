@@ -120,9 +120,16 @@ export const AIWorkspace: React.FC<AIWorkspaceProps> = ({
     setIsProcessing(true);
 
     try {
+      const localFolderCandidate = localStorage.getItem('craft-workspace:local-export-folder:' + activeProject.id);
+      const importedFiles = activeProject.assets.filter((asset) => asset.contentStoredLocally).map((asset) => asset.name).slice(0, 40);
+      const projectContext = [
+        'Project: ' + activeProject.name,
+        importedFiles.length ? 'Imported project files: ' + importedFiles.join(', ') : 'No imported project files are currently listed.',
+        localFolderCandidate ? 'Last exported folder name: ' + localFolderCandidate + '. This is relative to the configured CraftProjects root only if the user selected that exact root in the folder picker; confirm with the user before relying on the path.' : 'No local folder export has been recorded for this project.',
+      ].join(' | ');
       const response = await aiService.processUserPrompt(
         currentInput,
-        activeProject.name,
+        projectContext,
         activeApp ? activeApp.name : 'Workspace',
         await companionService.listAllMcpTools()
       );

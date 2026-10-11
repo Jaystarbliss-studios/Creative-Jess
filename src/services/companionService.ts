@@ -136,7 +136,7 @@ class LocalCompanionService {
     const response = await fetch('http://127.0.0.1:' + this.state.port + '/mcp/' + encodeURIComponent(appId) + '/tools', { headers: { 'Authorization': 'Bearer ' + this.pairingToken, 'X-Craft-Origin': 'craft-workspace-web' } });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(typeof data?.error === 'string' ? data.error : 'MCP tool discovery failed (HTTP ' + response.status + ').');
-    const tools = Array.isArray(data?.tools) ? data.tools.filter((tool: unknown) => tool && typeof tool === 'object' && typeof (tool as { name?: unknown }).name === 'string').map((tool: { name: string; description?: string; inputSchema?: Record<string, unknown> }) => ({ appId, name: tool.name, description: typeof tool.description === 'string' ? tool.description : '', inputSchema: tool.inputSchema && typeof tool.inputSchema === 'object' ? tool.inputSchema : { type: 'object', properties: {} } })) : [];
+    const tools: McpToolDescriptor[] = Array.isArray(data?.tools) ? data.tools.filter((tool: unknown) => tool && typeof tool === 'object' && typeof (tool as { name?: unknown }).name === 'string').map((tool: { name: string; description?: string; inputSchema?: Record<string, unknown> }) => ({ appId, name: tool.name, description: typeof tool.description === 'string' ? tool.description : '', inputSchema: tool.inputSchema && typeof tool.inputSchema === 'object' ? tool.inputSchema : { type: 'object', properties: {} } })) : [];
     this.mcpToolCache.set(appId, { loadedAt: Date.now(), tools });
     return tools.map((tool) => ({ ...tool }));
   }

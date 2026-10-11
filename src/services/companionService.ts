@@ -15,6 +15,7 @@ class LocalCompanionService {
   };
 
   private pairingToken: string | null = null;
+  private mcpToolCache = new Map<string, { loadedAt: number; tools: McpToolDescriptor[] }>();
   private listeners: ((state: CompanionState) => void)[] = [];
 
   constructor() {
@@ -121,24 +122,38 @@ class LocalCompanionService {
 
   public disconnect() {
     this.pairingToken = null;
+    this.mcpToolCache.clear();
     this.state.tokenPaired = false;
     this.state.connected = false;
     this.notify();
   }
 
   public async listMcpTools(appId: string): Promise<McpToolDescriptor[]> {
+    const cached = this.mcpToolCache.get(appId);
+    if (cached && Date.now() - cached.loadedAt < 5 * 60 * 1000) return cached.tools.map((tool) => ({ ...tool }));
     if (!this.state.connected || !this.state.tokenPaired || !this.pairingToken) throw new Error('Pair the local companion before discovering MCP tools.');
     if (!this.state.availableMcpApps.includes(appId)) throw new Error('No MCP CLI is configured for ' + appId + '.');
     const response = await fetch('http://127.0.0.1:' + this.state.port + '/mcp/' + encodeURIComponent(appId) + '/tools', { headers: { 'Authorization': 'Bearer ' + this.pairingToken, 'X-Craft-Origin': 'craft-workspace-web' } });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(typeof data?.error === 'string' ? data.error : 'MCP tool discovery failed (HTTP ' + response.status + ').');
-    return Array.isArray(data?.tools) ? data.tools.filter((tool: unknown) => tool && typeof tool === 'object' && typeof (tool as { name?: unknown }).name === 'string').map((tool: { name: string; description?: string; inputSchema?: Record<string, unknown> }) => ({ appId, name: tool.name, description: typeof tool.description === 'string' ? tool.description : '', inputSchema: tool.inputSchema && typeof tool.inputSchema === 'object' ? tool.inputSchema : { type: 'object', properties: {} } })) : [];
+    const tools = Array.isArray(data?.tools) ? data.tools.filter((tool: unknown) => tool && typeof tool === 'object' && typeof (tool as { name?: unknown }).name === 'string').map((tool: { name: string; description?: string; inputSchema?: Record<string, unknown> }) => ({ appId, name: tool.name, description: typeof tool.description === 'string' ? tool.description : '', inputSchema: tool.inputSchema && typeof tool.inputSchema === 'object' ? tool.inputSchema : { type: 'object', properties: {} } })) : [];
+    this.mcpToolCache.set(appId, { loadedAt: Date.now(), tools });
+    return tools.map((tool) => ({ ...tool }));
   }
 
   public async listAllMcpTools(): Promise<McpToolDescriptor[]> {
     if (!this.state.connected || !this.state.tokenPaired) return [];
-    const results = await Promise.allSettled(this.state.availableMcpApps.map((appId) => this.listMcpTools(appId)));
-    return results.flatMap((result) => result.status === 'fulfilled' ? result.value : []);
+    const appIds = [...this.state.availableMcpApps];
+    const results: McpToolDescriptor[] = [];
+    let cursor = 0;
+    const worker = async () => {
+      while (cursor < appIds.length) {
+        const appId = appIds[cursor++];
+        try { results.push(...await this.listMcpTools(appId)); } catch { /* Unavailable CLIs are omitted; no tools are fabricated. */ }
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(3, appIds.length) }, () => worker()));
+    return results;
   }
 
   public async callMcpTool(appId: string, name: string, args: Record<string, unknown>): Promise<{ success: boolean; output: string }> {

@@ -140,11 +140,21 @@ export class McpBroker {
     return new McpSession(executable, args);
   }
   async listTools(appId: string) {
-    const active = this.sessions.get(appId);
-    if (active) return active.listTools();
-    const temporary = await this.createSession(appId);
-    try { return await temporary.listTools(); } finally { temporary.dispose(); }
+    return (await this.session(appId)).listTools();
   }
-  async callTool(appId: string, name: string, args: unknown) { return (await this.session(appId)).callTool(name, args); }
+  async callTool(appId: string, name: string, args: unknown) {
+    const session = await this.session(appId);
+    try {
+      return await session.callTool(name, args);
+    } catch (error) {
+      // A crashed or timed-out session must not poison future calls. Remove only
+      // the same session so concurrent requests cannot evict a replacement.
+      if (this.sessions.get(appId) === session) {
+        this.sessions.delete(appId);
+        session.dispose();
+      }
+      throw error;
+    }
+  }
   close() { for (const s of this.sessions.values()) s.dispose(); this.sessions.clear(); }
 }

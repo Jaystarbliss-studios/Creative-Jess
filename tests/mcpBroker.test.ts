@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { McpBroker } from '../companion/mcpBroker.ts';
 
-test('MCP broker discovers real CLI tool schemas and validates calls before dispatch', { skip: process.platform === 'win32' }, async () => {
+test('MCP broker keeps a discovered CLI session alive and validates calls before dispatch', { skip: process.platform === 'win32' }, async () => {
   const directory = await mkdtemp(path.join(os.tmpdir(), 'craft-mcp-test-'));
   const executable = path.join(directory, 'fake-mcp');
   const script = `#!/usr/bin/env node
@@ -30,6 +30,8 @@ rl.on('line', (line) => {
   const broker = new McpBroker({ testapp: executable });
   try {
     const tools = await broker.listTools('testapp');
+    const toolsAgain = await broker.listTools('testapp');
+    assert.equal(toolsAgain.length, 1, 'tool discovery should reuse the same live CLI session');
     assert.equal(tools.length, 1);
     assert.equal(tools[0].name, 'echo');
     assert.equal(tools[0].description, 'clean', 'provider credentials must not be inherited by local editor processes');

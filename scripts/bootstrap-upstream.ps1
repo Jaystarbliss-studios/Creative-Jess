@@ -8,7 +8,7 @@ $ErrorActionPreference = 'Stop'
 $Root = [System.IO.Path]::GetFullPath($Root)
 $LogRoot = Join-Path $Root '_logs'
 New-Item -ItemType Directory -Force -Path $Root, $LogRoot | Out-Null
-foreach ($commandName in @('git', 'cargo', 'rustc')) {
+foreach ($commandName in @('git', 'cargo', 'rustc', 'node')) {
     if (-not (Get-Command $commandName -ErrorAction SilentlyContinue)) { throw "Required command '$commandName' was not found. Install Git and Rust first." }
 }
 $rustVersionText = (& rustc --version).ToString()
@@ -59,6 +59,7 @@ foreach ($repo in $repositories) {
                 $results.Add([pscustomobject]@{ Repository = $repo; Status = 'no obvious desktop/CLI package'; Desktop = ''; McpCli = ''; Log = $logFile })
                 continue
             }
+            $mcpSmokePassed = $false
             foreach ($package in $selected) {
                 Write-Host "Building $repo / $($package.name)..."
                 "=== cargo build --release -p $($package.name) ===" | Out-File -FilePath $logFile -Append -Encoding utf8
@@ -74,7 +75,16 @@ foreach ($repo in $repositories) {
                     }
                 }
             }
-            $status = if ($mcpPaths.Contains($repo) -and $appPaths.Contains($repo)) { 'desktop and MCP CLI built' } elseif ($mcpPaths.Contains($repo)) { 'MCP CLI built; desktop not found' } elseif ($appPaths.Contains($repo)) { 'desktop built; MCP CLI not found' } else { 'no executable verified; inspect build log' }
+            if ($mcpPaths.Contains($repo)) {
+                Write-Host "Smoke-testing actual MCP CLI for $repo..."
+                "=== node scripts/smoke-mcp.mjs --binary $($mcpPaths[$repo]) ===" | Out-File -FilePath $logFile -Append -Encoding utf8
+                $smokeArgs = @((Join-Path $PSScriptRoot 'smoke-mcp.mjs'), '--binary', $mcpPaths[$repo])
+                if ($repo -in @('photocraft', 'vectorcraft')) { $smokeArgs += '--scoped-roots' }
+                & node @smokeArgs 2>&1 | Tee-Object -FilePath $logFile -Append | Out-Null
+                $mcpSmokePassed = ($LASTEXITCODE -eq 0)
+                if (-not $mcpSmokePassed) { Write-Warning "MCP smoke test failed for $repo. See $logFile" }
+            }
+            $status = if ($mcpPaths.Contains($repo) -and $appPaths.Contains($repo) -and $mcpSmokePassed) { 'desktop and MCP built; MCP smoke passed' } elseif ($mcpPaths.Contains($repo) -and $mcpSmokePassed) { 'MCP built and smoke-tested; desktop not found' } elseif ($mcpPaths.Contains($repo)) { 'MCP CLI built; MCP smoke failed' } elseif ($appPaths.Contains($repo)) { 'desktop built; MCP CLI not found' } else { 'no executable verified; inspect build log' }
             $results.Add([pscustomobject]@{ Repository = $repo; Status = $status; Desktop = $appPaths[$repo]; McpCli = $mcpPaths[$repo]; Log = $logFile })
         } finally { Pop-Location }
     } catch {

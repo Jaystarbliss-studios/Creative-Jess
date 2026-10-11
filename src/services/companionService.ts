@@ -1,4 +1,4 @@
-import { CompanionState } from '../types';
+import { CompanionState, McpToolDescriptor } from '../types';
 
 class LocalCompanionService {
   private state: CompanionState = {
@@ -11,6 +11,7 @@ class LocalCompanionService {
     lastHeartbeat: null,
     allowlistedCommands: [],
     availableApps: [],
+    availableMcpApps: [],
   };
 
   private pairingToken: string | null = null;
@@ -34,7 +35,7 @@ class LocalCompanionService {
   }
 
   public getState(): CompanionState {
-    return { ...this.state, allowlistedCommands: [...this.state.allowlistedCommands], availableApps: [...this.state.availableApps] };
+    return { ...this.state, allowlistedCommands: [...this.state.allowlistedCommands], availableApps: [...this.state.availableApps], availableMcpApps: [...this.state.availableMcpApps] };
   }
 
   public async checkConnection(): Promise<boolean> {
@@ -58,6 +59,7 @@ class LocalCompanionService {
         this.state.availableApps = Array.isArray(health.availableApps)
           ? health.availableApps.filter((value: unknown): value is string => typeof value === 'string')
           : [];
+        this.state.availableMcpApps = Array.isArray(health.availableMcpApps) ? health.availableMcpApps.filter((value: unknown): value is string => typeof value === 'string') : [];
         this.state.registeredToolsCount = typeof health.registeredToolsCount === 'number' ? health.registeredToolsCount : 0;
       } else {
         this.state.connected = false;
@@ -65,6 +67,7 @@ class LocalCompanionService {
         this.pairingToken = null;
         this.state.allowlistedCommands = [];
         this.state.availableApps = [];
+        this.state.availableMcpApps = [];
       }
     } catch {
       this.state.connected = false;
@@ -72,6 +75,7 @@ class LocalCompanionService {
       this.pairingToken = null;
       this.state.allowlistedCommands = [];
       this.state.availableApps = [];
+      this.state.availableMcpApps = [];
     } finally {
       clearTimeout(timeoutId);
       this.notify();
@@ -122,6 +126,32 @@ class LocalCompanionService {
     this.notify();
   }
 
+  public async listMcpTools(appId: string): Promise<McpToolDescriptor[]> {
+    if (!this.state.connected || !this.state.tokenPaired || !this.pairingToken) throw new Error('Pair the local companion before discovering MCP tools.');
+    if (!this.state.availableMcpApps.includes(appId)) throw new Error('No MCP CLI is configured for ' + appId + '.');
+    const response = await fetch('http://127.0.0.1:' + this.state.port + '/mcp/' + encodeURIComponent(appId) + '/tools', { headers: { 'Authorization': 'Bearer ' + this.pairingToken, 'X-Craft-Origin': 'craft-workspace-web' } });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(typeof data?.error === 'string' ? data.error : 'MCP tool discovery failed (HTTP ' + response.status + ').');
+    return Array.isArray(data?.tools) ? data.tools.filter((tool: unknown) => tool && typeof tool === 'object' && typeof (tool as { name?: unknown }).name === 'string').map((tool: { name: string; description?: string; inputSchema?: Record<string, unknown> }) => ({ appId, name: tool.name, description: typeof tool.description === 'string' ? tool.description : '', inputSchema: tool.inputSchema && typeof tool.inputSchema === 'object' ? tool.inputSchema : { type: 'object', properties: {} } })) : [];
+  }
+
+  public async listAllMcpTools(): Promise<McpToolDescriptor[]> {
+    if (!this.state.connected || !this.state.tokenPaired) return [];
+    const results = await Promise.allSettled(this.state.availableMcpApps.map((appId) => this.listMcpTools(appId)));
+    return results.flatMap((result) => result.status === 'fulfilled' ? result.value : []);
+  }
+
+  public async callMcpTool(appId: string, name: string, args: Record<string, unknown>): Promise<{ success: boolean; output: string }> {
+    if (!this.state.connected || !this.state.tokenPaired || !this.pairingToken) throw new Error('Pair the local companion before running MCP tools.');
+    if (!this.state.availableMcpApps.includes(appId)) throw new Error('No MCP CLI is configured for ' + appId + '.');
+    if (!this.state.allowlistedCommands.includes('mcp-call-tool')) throw new Error('The companion does not allow MCP tool calls.');
+    const response = await fetch('http://127.0.0.1:' + this.state.port + '/mcp/' + encodeURIComponent(appId) + '/call', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + this.pairingToken, 'X-Craft-Origin': 'craft-workspace-web' }, body: JSON.stringify({ name, arguments: args }) });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) return { success: false, output: typeof data?.error === 'string' ? data.error : 'MCP tool call failed (HTTP ' + response.status + ').' };
+    const result = data?.result;
+    const output = typeof result?.content === 'string' ? result.content : Array.isArray(result?.content) ? result.content.map((part: { text?: unknown }) => typeof part?.text === 'string' ? part.text : JSON.stringify(part)).join('\n') : JSON.stringify(result);
+    return { success: result?.isError !== true, output: output || 'MCP tool returned no content.' };
+  }
   public async executeAllowlistedCommand(commandName: string, args: string[]): Promise<{ success: boolean; output: string; exitCode: number }> {
     if (!this.state.allowlistedCommands.includes(commandName)) {
       throw new Error("Security policy rejected command '" + commandName + "': it is not in the companion's reported allowlist.");

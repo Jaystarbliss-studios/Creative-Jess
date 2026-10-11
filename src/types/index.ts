@@ -127,6 +127,14 @@ export interface CompanionState {
   lastHeartbeat: string | null;
   allowlistedCommands: string[];
   availableApps: string[];
+  availableMcpApps: string[];
+}
+
+export interface McpToolDescriptor {
+  appId: string;
+  name: string;
+  description?: string;
+  inputSchema?: Record<string, unknown>;
 }
 
 export interface ActivityLog {

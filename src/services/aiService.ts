@@ -152,20 +152,21 @@ class AIService {
         });
         if (!response.ok) throw new Error('Local model returned HTTP ' + response.status);
         const data = await response.json();
-        if (typeof data?.message?.content !== 'string' || !data.message.content.trim()) throw new Error('Local model returned no message text.');
+        const messageText = typeof data?.message?.content === 'string' ? data.message.content.trim() : '';
+        const call = Array.isArray(data?.message?.tool_calls) ? data.message.tool_calls[0]?.function : null;
+        if (!messageText && !call) throw new Error('Local model returned neither message text nor a tool proposal.');
         this.config.activeLocalConnected = true;
         this.listeners.forEach(cb => cb({ ...this.config }));
-        const call = Array.isArray(data?.message?.tool_calls) ? data.message.tool_calls[0]?.function : null;
         if (call && typeof call.name === 'string' && call.name === 'open_application' && typeof call.arguments?.appId === 'string') {
-          return { text: data.message.content || 'Review the proposed application launch before approving it.', toolProposal: { name: 'open_application', args: { appId: call.arguments.appId } } };
+          return { text: messageText || 'Review the proposed application launch before approving it.', toolProposal: { name: 'open_application', args: { appId: call.arguments.appId } } };
         }
         if (call && typeof call.name === 'string') {
           const tool = mcpTools.slice(0, 50).find((item) => functionNameForTool(item) === call.name);
           if (tool && call.arguments && typeof call.arguments === 'object' && !Array.isArray(call.arguments)) {
-            return { text: data.message.content || 'Review the proposed editor operation before approving it.', toolProposal: { name: 'mcp_tool', args: { appId: tool.appId, toolName: tool.name, arguments: call.arguments as Record<string, unknown> } } };
+            return { text: messageText || 'Review the proposed editor operation before approving it.', toolProposal: { name: 'mcp_tool', args: { appId: tool.appId, toolName: tool.name, arguments: call.arguments as Record<string, unknown> } } };
           }
         }
-        return { text: data.message.content };
+        return { text: messageText };
       } catch (error) {
         this.config.activeLocalConnected = false;
         this.listeners.forEach(cb => cb({ ...this.config }));

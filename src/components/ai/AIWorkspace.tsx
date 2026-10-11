@@ -337,7 +337,9 @@ export const AIWorkspace: React.FC<AIWorkspaceProps> = ({
                     </div>
 
                     {msg.toolCall.status === 'proposed' && (
-                      <div className="flex items-center gap-2 pt-1">
+                      <>
+                        {msg.toolCall.toolName === 'mcp_tool' && <p className="text-[11px] leading-relaxed text-[var(--text-muted)]">Review the tool name and every argument before approving. The upstream tool may modify, overwrite, delete, or export files according to its own permissions.</p>}
+                        <div className="flex items-center gap-2 pt-1">
                         <button
                           onClick={() => void handleApproveTool(msg.id)} disabled={Boolean(executingToolId)}
                           className="flex items-center gap-1 px-3 py-1.5 rounded bg-emerald-500 hover:bg-emerald-600 text-white font-medium text-xs transition-colors"
@@ -352,7 +354,8 @@ export const AIWorkspace: React.FC<AIWorkspaceProps> = ({
                           <X size={13} />
                           <span>Cancel</span>
                         </button>
-                      </div>
+                        </div>
+                      </>
                     )}
 
                     {msg.toolCall.result && (

@@ -34,7 +34,7 @@ rl.on('line', (line) => {
     const toolsAgain = await broker.listTools('testapp');
     assert.equal(toolsAgain.length, 1, 'tool discovery should reuse the same live CLI session');
     const starts = await readFile(path.join(directory, 'starts.txt'), 'utf8');
-    assert.equal(starts.trim().split(/\\r?\\n/).length, 1, 'repeated discovery should start only one CLI process');
+    assert.equal(starts.trim().split(/\r?\n/).length, 1, 'repeated discovery should start only one CLI process');
     assert.equal(tools.length, 1);
     assert.equal(tools[0].name, 'echo');
     assert.equal(tools[0].description, 'clean|mcp', 'default invocation uses only the documented MCP subcommand and must not inherit provider credentials');

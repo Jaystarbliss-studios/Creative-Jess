@@ -9,8 +9,8 @@ Last updated: 2026-10-11
 - Workspace stack observed: React, TypeScript, Vite, Tailwind CSS.
 - Upstream catalog size: 21 repositories.
 - GitHub repository metadata checked for all 21 catalog entries; see REPOSITORY_DISCOVERY.md. This is metadata discovery only, not source inspection.
-- Upstream verification: VectorCraft desktop and CLI build passed on Windows Server 2025 using stable Rust; its real MCP server initialized and returned 32 tools. This verifies build and protocol discovery only, not an actual edit/export workflow. PhotoCraft and DesignCraft real-upstream builds are still running in separate CI jobs. Full editor acceptance workflows verified: 0.
-- Local companion: loopback-only Node/Express service supports configured executable launches plus a persistent stdio MCP broker for configured CLI paths. CI covers health/pairing rejection, MCP tool discovery, schema validation, and the frontend build. The real VectorCraft CLI at upstream commit `53bc86fdb454ed33cd26cba5e29695ebe0befeff` passed MCP initialize/tools/list and reported 32 tools in workflow run `38162282458`; no tool-call or editing/export acceptance operation has been verified yet.
+- Upstream verification: PhotoCraft and VectorCraft desktop + CLI builds passed on Windows Server 2025 using stable Rust. Their real MCP servers initialized successfully and returned 21 tools (PhotoCraft) and 32 tools (VectorCraft). This verifies builds and protocol discovery only, not actual editing/export workflows. DesignCraft is still being built in a separate CI job. Full editor acceptance workflows verified: 0.
+- Local companion: loopback-only Node/Express service supports configured executable launches plus a persistent stdio MCP broker for configured CLI paths. CI covers health/pairing rejection, MCP tool discovery, schema validation, and the frontend build. The real VectorCraft CLI at upstream commit `53bc86fdb454ed33cd26cba5e29695ebe0befeff` passed MCP initialize/tools/list and reported 32 tools; the real PhotoCraft CLI at upstream commit `e5dbcab335b16ca99f540f97b27d08ef60e6626d` passed the same check and reported 21 tools in workflow run `38162282458`. No tool-call or editing/export acceptance operation has been verified yet.
 - File import: Project Browser uses IndexedDB to store real selected file bytes and localStorage for project metadata. Download of imported originals is implemented. Suggested app mappings do not imply format compatibility.
 - Cloud AI route: server-side Gemini route added; requires GEMINI_API_KEY and a protected deployment.
 - Local AI: the workspace lets the user set an Ollama-compatible endpoint and model, saves those preferences on the device, and tests `/api/tags`. Chat/function calling still depends on the local runtime, model support, and browser CORS/network policy.
@@ -40,7 +40,7 @@ A UI preview, mocked result, screenshot, or successful TypeScript compilation is
 | Repository | Initial status | Next verification |
 |---|---|---|
 | artcraft | not_inspected | inspect license, web/native build, model/service dependencies |
-| photocraft | not_inspected | inspect manifests, web build, CLI/JSON/MCP interface, real import/export |
+| photocraft | build_passed | Windows CI built desktop + CLI and MCP initialize/tools/list returned 21 tools at upstream commit `e5dbcab335b16ca99f540f97b27d08ef60e6626d`; next run a real image open/edit/save/export round trip |
 | artcraftx | not_inspected | inspect actual role, dependencies, and supported execution target |
 | lightcraft | not_inspected | inspect RAW codecs, native/web support, and sample export |
 | filmcraft | not_inspected | inspect timeline engine, media dependencies, automation API, sample render |

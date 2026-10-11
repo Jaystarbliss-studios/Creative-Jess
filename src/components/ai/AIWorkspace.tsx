@@ -255,7 +255,7 @@ export const AIWorkspace: React.FC<AIWorkspaceProps> = ({
                     )}
 
                     {msg.toolCall.result && (
-                      <div className="text-[11px] text-emerald-400 font-mono pt-1">
+                      <div className={`text-[11px] font-mono pt-1 ${msg.toolCall.status === 'executed' ? 'text-emerald-400' : msg.toolCall.status === 'failed' || msg.toolCall.status === 'rejected' ? 'text-rose-400' : 'text-[var(--text-secondary)]'}`}>
                         &gt; {msg.toolCall.result}
                       </div>
                     )}

@@ -114,6 +114,12 @@ class AIService {
     this.listeners.forEach(cb => cb({ ...this.config }));
   }
 
+  public setLocalModel(model: string) {
+    this.config.localModel = model.trim() || 'llama3.2:latest';
+    this.persistPreferences();
+    this.listeners.forEach(cb => cb({ ...this.config }));
+  }
+
   public setConfirmConsequential(confirm: boolean) {
     this.config.confirmConsequentialTools = confirm;
     this.persistPreferences();

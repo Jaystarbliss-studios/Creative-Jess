@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
   Project, 
   CraftApp, 
@@ -55,6 +55,44 @@ export const AIWorkspace: React.FC<AIWorkspaceProps> = ({
   const [inputText, setInputText] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [executingToolId, setExecutingToolId] = useState<string | null>(null);
+  const [localEndpointDraft, setLocalEndpointDraft] = useState(aiConfig.localEndpoint);
+  const [localModelDraft, setLocalModelDraft] = useState(aiConfig.localModel);
+  const [isCheckingLocal, setIsCheckingLocal] = useState(false);
+  const [localConnectionMessage, setLocalConnectionMessage] = useState('');
+
+  useEffect(() => {
+    setLocalEndpointDraft(aiConfig.localEndpoint);
+    setLocalModelDraft(aiConfig.localModel);
+  }, [aiConfig.localEndpoint, aiConfig.localModel]);
+
+  const saveLocalSettings = () => {
+    const endpoint = localEndpointDraft.trim().replace(/\/+$/, '');
+    const model = localModelDraft.trim();
+    if (!/^https?:\/\//i.test(endpoint) || !model) {
+      setLocalConnectionMessage('Enter a valid HTTP(S) endpoint and a model name.');
+      return false;
+    }
+    aiService.setLocalEndpoint(endpoint);
+    aiService.setLocalModel(model);
+    onUpdateAIConfig({ localEndpoint: endpoint, localModel: model });
+    setLocalConnectionMessage('Local AI settings saved on this device.');
+    return true;
+  };
+
+  const checkLocalConnection = async () => {
+    if (!saveLocalSettings()) return;
+    setIsCheckingLocal(true);
+    setLocalConnectionMessage('Checking local AI runtime…');
+    try {
+      const connected = await aiService.checkLocalHealth();
+      setLocalConnectionMessage(connected
+        ? 'Ollama responded. Tool calling still depends on the selected model.'
+        : 'Could not reach Ollama. Check that it is running and allows requests from this workspace origin.');
+      onUpdateAIConfig(aiService.getConfig());
+    } finally {
+      setIsCheckingLocal(false);
+    }
+  };
 
 
   const handleSendMessage = async (e?: React.FormEvent) => {
@@ -215,6 +253,24 @@ export const AIWorkspace: React.FC<AIWorkspaceProps> = ({
             </button>
           </div>
         </div>
+
+        {aiConfig.mode === 'local' && (
+          <div className="shrink-0 border-b border-[var(--border-subtle)] bg-[var(--bg-surface)] px-6 py-3">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto_auto] md:items-end">
+              <label className="block text-[11px] text-[var(--text-muted)]">
+                Ollama endpoint
+                <input value={localEndpointDraft} onChange={(event) => setLocalEndpointDraft(event.target.value)} placeholder="http://127.0.0.1:11434" className="mt-1 w-full border-b border-[var(--border-subtle)] bg-transparent py-2 text-xs text-[var(--text-primary)] outline-none focus:border-[#B7A0FF]" />
+              </label>
+              <label className="block text-[11px] text-[var(--text-muted)]">
+                Local model
+                <input value={localModelDraft} onChange={(event) => setLocalModelDraft(event.target.value)} placeholder="llama3.2:latest" className="mt-1 w-full border-b border-[var(--border-subtle)] bg-transparent py-2 text-xs text-[var(--text-primary)] outline-none focus:border-[#B7A0FF]" />
+              </label>
+              <button onClick={saveLocalSettings} className="px-3 py-2 text-xs text-[var(--text-secondary)] border border-[var(--border-subtle)] hover:text-[var(--text-primary)]">Save settings</button>
+              <button onClick={() => void checkLocalConnection()} disabled={isCheckingLocal} className="px-3 py-2 text-xs bg-[#B7A0FF] text-[#101114] disabled:opacity-50">{isCheckingLocal ? 'Checking…' : 'Test connection'}</button>
+            </div>
+            {localConnectionMessage && <p role="status" className="mt-2 text-[11px] text-[var(--text-muted)]">{localConnectionMessage}</p>}
+          </div>
+        )}
 
         {/* Message History */}
         <div className="flex-1 overflow-y-auto p-6 space-y-5">

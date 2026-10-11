@@ -103,6 +103,7 @@ class LocalCompanionService {
         return { success: false, message: typeof data?.message === 'string' ? data.message : 'The companion did not confirm pairing. No pairing was established.' };
       }
       this.pairingToken = token.trim();
+      this.mcpToolCache.clear();
       this.state.tokenPaired = true;
       this.state.connected = true;
       this.state.lastHeartbeat = new Date().toISOString();

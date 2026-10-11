@@ -61,7 +61,7 @@ The **Upstream MCP pilot smoke tests** GitHub Actions workflow builds PhotoCraft
 
 ## Building upstream apps on Windows
 
-The companion can use real upstream CLI executables, but those binaries must exist on the computer running the companion. A starter script clones the core native creative applications plus the launcher, font utility, and repository-status utility into a separate ignored .upstream folder. It attempts release builds of matching desktop packages and any -cli packages, runs a real MCP initialize/tools-list smoke test for discovered CLIs, records per-repository logs, and generates local absolute-path settings. ArtCraft is opt-in because of its size. Shared libraries, the PSD fixture corpus, ArtCraft Services, and Terraform are not built by this script; they need separate dependency, licensing, security, or infrastructure review:
+The companion can use real upstream CLI executables, but those binaries must exist on the computer running the companion. A starter script clones the core native creative applications plus the launcher, font utility, and repository-status utility into a separate ignored .upstream folder. It attempts release builds of matching desktop packages and CLI/automation/MCP binary packages, runs a real MCP initialize/tools-list smoke test for discovered CLIs, records per-repository logs, and generates local absolute-path settings. ArtCraft is opt-in because of its size. Shared libraries, the PSD fixture corpus, ArtCraft Services, and Terraform are not built by this script; they need separate dependency, licensing, security, or infrastructure review:
 
 ```powershell
 Set-ExecutionPolicy -Scope Process Bypass

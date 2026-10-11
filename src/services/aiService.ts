@@ -105,7 +105,7 @@ class AIService {
       }
     }
 
-    // Cloud credentials must remain server-side; this request fails clearly until that endpoint exists.
+    // Cloud credentials remain server-side; the Express endpoint handles provider requests.
     try {
       const response = await fetch('/api/ai/chat', {
         method: 'POST',

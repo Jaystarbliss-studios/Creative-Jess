@@ -107,7 +107,6 @@ export const AIWorkspace: React.FC<AIWorkspaceProps> = ({
             ...msg,
             toolCall: {
               ...msg.toolCall,
-              status: 'executed',
               status: 'failed',
               result: 'No operation was executed. This workspace has no verified tool adapter for this action.',
             },

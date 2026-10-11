@@ -96,6 +96,7 @@ class LocalCompanionService {
   }
 
   public disconnect() {
+    this.pairingToken = null;
     this.state.tokenPaired = false;
     this.state.connected = false;
     this.notify();

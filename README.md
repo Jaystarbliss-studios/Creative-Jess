@@ -32,7 +32,7 @@ The project intentionally uses conservative integration statuses. Do not change 
 Use a supported Node.js release for the installed Vite version.
 
 1. Install dependencies with npm install.
-2. Set GEMINI_API_KEY in the server environment if cloud AI is needed. Never put it in client-side code or commit it.
+2. Copy .env.example to .env and set GEMINI_API_KEY if cloud AI is needed. Never put it in client-side code or commit the real .env file.
 3. Run npm run dev to start the Vite-backed Express development server.
 4. Run npm run lint and npm run build before pushing.
 5. For production, build the frontend and run npm start with NODE_ENV=production.

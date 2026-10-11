@@ -33,6 +33,10 @@ jobs:
           repository: storytold/${{ matrix.repository }}
           ref: main
           path: .upstream/${{ matrix.repository }}
+      - name: Set up Node for repository UI tests
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
       - name: Install stable Rust
         uses: dtolnay/rust-toolchain@stable
       - name: Cache Cargo build outputs
@@ -40,6 +44,9 @@ jobs:
         with:
           workspaces: |
             .upstream/${{ matrix.repository }} -> target
+      - name: Test repository status UI model
+        if: matrix.repository == 'craft-repo-status-app'
+        run: node --test .upstream/craft-repo-status-app/ui/model.test.mjs
       - name: Test entire Cargo workspace
         shell: pwsh
         run: |

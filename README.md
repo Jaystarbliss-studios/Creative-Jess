@@ -46,7 +46,7 @@ The AI endpoint has a same-origin check and a basic in-memory per-IP rate limit.
 Run npm run companion on the machine where native applications are installed. On Windows PowerShell, configure actual installed executable paths. These examples are illustrative; replace paths with the files installed on your machine:
 
     $env:CRAFT_APP_PATHS_JSON='{"photocraft":"C:\\Program Files\\PhotoCraft\\photocraft.exe"}'
-    $env:CRAFT_MCP_PATHS_JSON='{"photocraft":"C:\\Program Files\\PhotoCraft\\photocraft-cli.exe","vectorcraft":"C:\\Program Files\\VectorCraft\\vectorcraft-cli.exe","designcraft":"C:\\Program Files\\DesignCraft\\designcraft-cli.exe"}'
+    $env:CRAFT_MCP_PATHS_JSON='{"photocraft":"C:\\Program Files\\PhotoCraft\\photocraft-cli.exe","vectorcraft":"C:\\Program Files\\VectorCraft\\vectorcraft-cli.exe","designcraft":"C:\\Program Files\\DesignCraft\\designcraft-cli.exe","pdfcraft":"C:\\Program Files\\PdfCraft\\pdfcraft-cli.exe"}'
     $env:CRAFT_MCP_SCOPED_ROOTS_JSON='{"photocraft":{"readRoot":"C:\\Users\\you\\Documents\\CraftProjects","writeRoot":"C:\\Users\\you\\Documents\\CraftProjects\\exports"},"vectorcraft":{"readRoot":"C:\\Users\\you\\Documents\\CraftProjects","writeRoot":"C:\\Users\\you\\Documents\\CraftProjects\\exports"}}'
     $env:CRAFT_MCP_EXTRA_ARGS_JSON='{"pdfcraft":["--root","C:\\Users\\you\\Documents\\CraftProjects"]}'
     $env:CRAFT_WORKSPACE_ORIGINS='http://localhost:3000'

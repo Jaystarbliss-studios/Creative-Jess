@@ -69,6 +69,7 @@ class LocalCompanionService {
         this.state.allowlistedCommands = [];
         this.state.availableApps = [];
         this.state.availableMcpApps = [];
+        this.state.registeredToolsCount = 0;
       }
     } catch {
       this.state.connected = false;
@@ -77,6 +78,7 @@ class LocalCompanionService {
       this.state.allowlistedCommands = [];
       this.state.availableApps = [];
       this.state.availableMcpApps = [];
+      this.state.registeredToolsCount = 0;
     } finally {
       clearTimeout(timeoutId);
       this.notify();
@@ -126,6 +128,7 @@ class LocalCompanionService {
     this.mcpToolCache.clear();
     this.state.tokenPaired = false;
     this.state.connected = false;
+    this.state.registeredToolsCount = 0;
     this.notify();
   }
 

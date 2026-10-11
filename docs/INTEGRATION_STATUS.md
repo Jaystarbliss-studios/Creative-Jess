@@ -13,9 +13,9 @@ Last updated: 2026-10-11
 - Local companion: loopback-only Node/Express service supports configured executable launches plus a persistent stdio MCP broker for configured CLI paths. CI covers health/pairing rejection, MCP tool discovery, schema validation, and the frontend build. The broker has not yet been tested against real upstream CLI binaries.
 - File import: Project Browser uses IndexedDB to store real selected file bytes and localStorage for project metadata. Download of imported originals is implemented. Suggested app mappings do not imply format compatibility.
 - Cloud AI route: server-side Gemini route added; requires GEMINI_API_KEY and a protected deployment.
-- Local AI: Ollama-compatible browser request can be attempted, but success depends on the local runtime and browser network policy.
+- Local AI: the workspace lets the user set an Ollama-compatible endpoint and model, saves those preferences on the device, and tests `/api/tags`. Chat/function calling still depends on the local runtime, model support, and browser CORS/network policy.
 - Integration shell validation: passed in GitHub Actions on commit e28735de020adf925b3a788dd3370431255cb3dc (TypeScript check, adapter safety tests, local companion health/pairing/authorization test, production frontend build).
-- Upstream app builds and smoke tests: still not run; shell CI does not prove upstream integration.
+- Upstream app builds and smoke tests: a Windows GitHub Actions pilot is now configured to build PhotoCraft and VectorCraft desktop/CLI packages and query each real CLI's MCP `initialize` and `tools/list` responses. Results must be checked before either app is marked verified; shell CI does not prove upstream integration.
 
 The earlier catalog contained specific versions, licenses, crate counts, file formats, and statements such as “integrated and verified” without supporting build logs or test evidence in this repository. Catalog metadata has been made conservative until each upstream repository is audited. GitHub metadata reports no SPDX license for artcraftx and craft-repo-status-app and reports NOASSERTION for artcraft-services; resolve these before redistribution/reuse. ArtCraft and ArtCraft Services report unusually large repository sizes, so inspect manifests and asset/LFS/history structure before a full clone.
 

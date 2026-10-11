@@ -74,10 +74,7 @@ foreach ($repo in $repositories) {
                     }
                 }
             }
-            $status = if ($mcpPaths.Contains($repo) -and $appPaths.Contains($repo)) { 'desktop and MCP CLI built' }
-                elseif ($mcpPaths.Contains($repo)) { 'MCP CLI built; desktop not found' }
-                elseif ($appPaths.Contains($repo)) { 'desktop built; MCP CLI not found' }
-                else { 'no executable verified; inspect build log' }
+            $status = if ($mcpPaths.Contains($repo) -and $appPaths.Contains($repo)) { 'desktop and MCP CLI built' } elseif ($mcpPaths.Contains($repo)) { 'MCP CLI built; desktop not found' } elseif ($appPaths.Contains($repo)) { 'desktop built; MCP CLI not found' } else { 'no executable verified; inspect build log' }
             $results.Add([pscustomobject]@{ Repository = $repo; Status = $status; Desktop = $appPaths[$repo]; McpCli = $mcpPaths[$repo]; Log = $logFile })
         } finally { Pop-Location }
     } catch {

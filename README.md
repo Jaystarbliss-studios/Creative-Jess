@@ -23,8 +23,9 @@ The project intentionally uses conservative integration statuses. Do not change 
 - Loopback-only local companion that can launch explicitly configured native executables through a structured allowlisted command; it cannot execute arbitrary shell commands.
 - Cloud AI can propose a native app launch through a constrained function declaration. The client requires explicit approval and a paired companion before sending the fixed launch command; no file editing is performed.
 - Companion pairing token is generated at launch and printed locally; configured app paths are read from CRAFT_APP_PATHS_JSON.
+- Persistent local MCP broker discovers tools from configured Craft CLI executables and invokes only tool names returned by each CLI's live tools/list response, with argument-schema validation and bounded requests.
 - Companion health, pairing rejection, and unauthorized command requests are covered by a runtime test.
-- The only AI-proposed native action currently supported is opening a configured application. No upstream editor operations are exposed.
+- Cloud and Ollama-compatible local AI can propose tool calls from configured MCP CLI catalogs. Each proposal requires explicit user approval; the companion validates the configured app/tool and arguments before forwarding a JSON-RPC tools/call request.
 
 ## Development
 
@@ -42,12 +43,16 @@ GitHub Actions on the integration branch runs TypeScript checking, adapter/compa
 
 The AI endpoint has a same-origin check and a basic in-memory per-IP rate limit. These are not a substitute for user authentication. Before exposing the web service publicly, deploy it behind appropriate authentication or an access-controlled hosting layer. Cloud API keys must remain server-side. The AI assistant can only propose launching a configured app; the user must approve the proposal and the paired local companion must authorize the app ID. It cannot edit project files or run arbitrary commands.
 
-Run npm run companion on the machine where native applications are installed. On Windows PowerShell, configure the actual executable path, then start the companion:
+Run npm run companion on the machine where native applications are installed. On Windows PowerShell, configure actual installed executable paths. These examples are illustrative; replace paths with the files installed on your machine:
 
-    $env:CRAFT_APP_PATHS_JSON='{"photocraft":"C:\\CraftApps\\PhotoCraft\\photocraft.exe"}'
+    $env:CRAFT_APP_PATHS_JSON='{"photocraft":"C:\\Program Files\\PhotoCraft\\photocraft.exe"}'
+    $env:CRAFT_MCP_PATHS_JSON='{"photocraft":"C:\\Program Files\\PhotoCraft\\photocraft-cli.exe","vectorcraft":"C:\\Program Files\\VectorCraft\\vectorcraft-cli.exe","designcraft":"C:\\Program Files\\DesignCraft\\designcraft-cli.exe"}'
+    $env:CRAFT_MCP_READ_ROOT='C:\\Users\\you\\Documents\\CraftProjects'
+    $env:CRAFT_MCP_WRITE_ROOT='C:\\Users\\you\\Documents\\CraftProjects\\exports'
+    $env:CRAFT_WORKSPACE_ORIGINS='http://localhost:3000'
     npm run companion
 
-The path above is an example only; replace it with the real installed executable path. Set CRAFT_WORKSPACE_ORIGINS to the exact web origin that should be allowed to connect. The companion binds only to 127.0.0.1 and prints a fresh pairing token at startup. Enter that token in the workspace companion dialog. It currently supports process launch only; it does not prove editor readiness, edit files, or expose arbitrary shell execution. The companion process must be run on the same computer as the configured apps. Review the protocol before production use.
+The path above is an example only; replace it with the real installed executable path. Set CRAFT_WORKSPACE_ORIGINS to the exact web origin that should be allowed to connect. The companion binds only to 127.0.0.1 and prints a fresh pairing token at startup. Enter that token in the workspace companion dialog. It currently supports process launch only; it does not prove editor readiness, edit files, or expose arbitrary shell execution. For MCP integration, set CRAFT_MCP_PATHS_JSON to absolute CLI executable paths. If read/write roots are set, both must be existing absolute directories; without roots, the upstream CLI should not be granted filesystem access. The broker starts each CLI with the fixed mcp argument, keeps the MCP process alive for the session, discovers tools from tools/list, and rejects tool names or arguments that do not match the returned schema. Every AI tool proposal still requires approval in the workspace. The companion process must run on the same computer as the configured apps. Review the protocol before production use.
 
 ## Upstream repositories
 

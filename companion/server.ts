@@ -50,7 +50,27 @@ function readAppPaths(): AppPathMap {
 }
 
 const appPaths = readAppPaths();
-const mcpBroker = new McpBroker(readMcpPaths());
+function readMcpScopedRoots(): Record<string, { readRoot?: string; writeRoot?: string }> {
+  const raw = process.env.CRAFT_MCP_SCOPED_ROOTS_JSON;
+  if (!raw) return {};
+  try {
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    const result: Record<string, { readRoot?: string; writeRoot?: string }> = {};
+    for (const [appId, candidate] of Object.entries(parsed)) {
+      if (!/^[a-z0-9-]+$/.test(appId) || !candidate || typeof candidate !== 'object' || Array.isArray(candidate)) continue;
+      const entry = candidate as Record<string, unknown>;
+      const roots: { readRoot?: string; writeRoot?: string } = {};
+      if (typeof entry.readRoot === 'string' && path.isAbsolute(entry.readRoot)) roots.readRoot = path.normalize(entry.readRoot);
+      if (typeof entry.writeRoot === 'string' && path.isAbsolute(entry.writeRoot)) roots.writeRoot = path.normalize(entry.writeRoot);
+      if (roots.readRoot || roots.writeRoot) result[appId] = roots;
+    }
+    return result;
+  } catch {
+    console.error('CRAFT_MCP_SCOPED_ROOTS_JSON is invalid JSON. No scoped roots were registered.');
+    return {};
+  }
+}
+const mcpBroker = new McpBroker(readMcpPaths(), readMcpScopedRoots());
 const allowedOrigins = new Set(
   (process.env.CRAFT_WORKSPACE_ORIGINS || 'http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173')
     .split(',')

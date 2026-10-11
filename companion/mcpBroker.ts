@@ -119,9 +119,11 @@ class McpSession {
   dispose() { this.closed = true; this.fail(new Error('MCP session was closed.')); this.lines.close(); this.child.kill(); }
 }
 
+export type McpScopedRoots = Record<string, { readRoot?: string; writeRoot?: string }>;
+
 export class McpBroker {
   private readonly sessions = new Map<string, McpSession>();
-  constructor(private readonly paths: Record<string, string>) {}
+  constructor(private readonly paths: Record<string, string>, private readonly scopedRoots: McpScopedRoots = {}) {}
   configuredApps() { return Object.keys(this.paths); }
   private async session(appId: string) {
     if (!Object.prototype.hasOwnProperty.call(this.paths, appId)) throw new Error('No MCP CLI is configured for this application.');
@@ -132,9 +134,17 @@ export class McpBroker {
     if (!Object.prototype.hasOwnProperty.call(this.paths, appId)) throw new Error('No MCP CLI is configured for this application.');
     const executable = this.paths[appId];
     await access(executable);
-    // Do not invent generic path-sandbox flags: upstream CLIs have different option contracts.
-    // The user reviews every proposed tool call, but filesystem scope remains an upstream-tool concern.
-    return new McpSession(executable, ['mcp']);
+    // Scope flags are opt-in per app because upstream CLI contracts differ.
+    const args = ['mcp'];
+    const roots = this.scopedRoots[appId];
+    for (const [kind, root] of [['read', roots?.readRoot], ['write', roots?.writeRoot]] as const) {
+      if (!root) continue;
+      if (!path.isAbsolute(root)) throw new Error('Configured MCP ' + kind + ' root must be an absolute path.');
+      const info = await import('node:fs/promises').then((fs) => fs.stat(root));
+      if (!info.isDirectory()) throw new Error('Configured MCP ' + kind + ' root must be an existing directory.');
+      args.push(kind === 'read' ? '--automation-read-root' : '--automation-write-root', path.normalize(root));
+    }
+    return new McpSession(executable, args);
   }
   async listTools(appId: string) {
     const session = await this.session(appId);

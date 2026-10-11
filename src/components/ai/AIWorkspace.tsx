@@ -12,6 +12,7 @@ import {
   REGISTERED_AI_TOOLS, 
   RegisteredTool 
 } from '../../services/aiService';
+import { companionService } from '../../services/companionService';
 import { 
   Cpu, 
   Send, 
@@ -53,6 +54,7 @@ export const AIWorkspace: React.FC<AIWorkspaceProps> = ({
   ]);
   const [inputText, setInputText] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [executingToolId, setExecutingToolId] = useState<string | null>(null);
   const [executingToolId, setExecutingToolId] = useState<string | null>(null);
 
   const handleSendMessage = async (e?: React.FormEvent) => {

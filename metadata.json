@@ -1,0 +1,6 @@
+{
+  "name": "Craft Workspace",
+  "description": "Unified Creative Operating Environment for the Storytold Craft ecosystem with application registry, asset workflows, and intelligent assistance.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

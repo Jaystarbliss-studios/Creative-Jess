@@ -3,8 +3,10 @@ import {
   Project, 
   CraftApp, 
   AIProviderConfig, 
-  AIChatMessage 
+  AIChatMessage,
+  CompanionState,
 } from '../../types';
+import { companionService } from '../../services/companionService';
 import { 
   aiService, 
   REGISTERED_AI_TOOLS, 
@@ -28,6 +30,8 @@ interface AIWorkspaceProps {
   activeApp: CraftApp | null;
   aiConfig: AIProviderConfig;
   onUpdateAIConfig: (cfg: Partial<AIProviderConfig>) => void;
+  companionState: CompanionState;
+  onOpenCompanionModal: () => void;
 }
 
 export const AIWorkspace: React.FC<AIWorkspaceProps> = ({
@@ -35,6 +39,8 @@ export const AIWorkspace: React.FC<AIWorkspaceProps> = ({
   activeApp,
   aiConfig,
   onUpdateAIConfig,
+  companionState,
+  onOpenCompanionModal,
 }) => {
   const [messages, setMessages] = useState<AIChatMessage[]>([
     {
@@ -47,6 +53,7 @@ export const AIWorkspace: React.FC<AIWorkspaceProps> = ({
   ]);
   const [inputText, setInputText] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [executingToolId, setExecutingToolId] = useState<string | null>(null);
 
   const handleSendMessage = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -78,6 +85,7 @@ export const AIWorkspace: React.FC<AIWorkspaceProps> = ({
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         mode: aiConfig.mode,
         text: response.text,
+        toolCall: response.toolProposal ? { toolName: response.toolProposal.name, parameters: response.toolProposal.args, status: 'proposed' } : undefined,
       };
 
       setMessages((prev) => [...prev, assistantMsg]);
@@ -86,22 +94,30 @@ export const AIWorkspace: React.FC<AIWorkspaceProps> = ({
     }
   };
 
-  const handleApproveTool = (msgId: string) => {
-    setMessages((prev) =>
-      prev.map((msg) => {
-        if (msg.id === msgId && msg.toolCall) {
-          return {
-            ...msg,
-            toolCall: {
-              ...msg.toolCall,
-              status: 'failed',
-              result: 'No operation was executed. This workspace has no verified tool adapter for this action.',
-            },
-          };
-        }
-        return msg;
-      })
-    );
+  const handleApproveTool = async (msgId: string) => {
+    if (executingToolId) return;
+    const message = messages.find((item) => item.id === msgId);
+    const toolCall = message?.toolCall;
+    if (!toolCall || toolCall.toolName !== 'open_application' || typeof toolCall.parameters.appId !== 'string') return;
+    const appId = toolCall.parameters.appId;
+    if (!companionState.connected || !companionState.tokenPaired) {
+      onOpenCompanionModal();
+      setMessages((prev) => prev.map((item) => item.id === msgId && item.toolCall ? { ...item, toolCall: { ...item.toolCall, result: 'No launch was requested. Pair the local companion, then approve this proposal again.' } } : item));
+      return;
+    }
+    if (!companionState.availableApps.includes(appId)) {
+      setMessages((prev) => prev.map((item) => item.id === msgId && item.toolCall ? { ...item, toolCall: { ...item.toolCall, status: 'failed', result: 'No launch occurred. Configure an absolute executable path for ' + appId + ' in CRAFT_APP_PATHS_JSON, restart the companion, and ask again.' } } : item));
+      return;
+    }
+    setExecutingToolId(msgId);
+    try {
+      const result = await companionService.executeAllowlistedCommand('open-app', [appId]);
+      setMessages((prev) => prev.map((item) => item.id === msgId && item.toolCall ? { ...item, toolCall: { ...item.toolCall, status: result.success ? 'executed' : 'failed', result: result.output } } : item));
+    } catch (error) {
+      setMessages((prev) => prev.map((item) => item.id === msgId && item.toolCall ? { ...item, toolCall: { ...item.toolCall, status: 'failed', result: error instanceof Error ? error.message : 'Launch request failed.' } } : item));
+    } finally {
+      setExecutingToolId(null);
+    }
   };
 
   const handleRejectTool = (msgId: string) => {
@@ -124,9 +140,9 @@ export const AIWorkspace: React.FC<AIWorkspaceProps> = ({
 
   return (
     <div className="flex h-full w-full overflow-hidden bg-[var(--bg-workspace)]">
-      <div className="border-b border-[var(--border-subtle)] px-6 py-2 text-[11px] text-[var(--text-muted)]">Provider status is verified only after a successful request. AI responses do not execute application actions in this build.</div>
       {/* Main Conversation Feed */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        <div className="border-b border-[var(--border-subtle)] px-6 py-2 text-[11px] text-[var(--text-muted)]">AI may propose launching a configured native app. It runs only after explicit approval and a paired companion response; editing tools are not registered yet.</div>
         {/* Top Provider Bar */}
         <div className="h-12 shrink-0 border-b border-[var(--border-subtle)] bg-[var(--bg-surface)] px-6 flex items-center justify-between gap-4 text-xs">
           <div className="flex items-center gap-3">
@@ -220,11 +236,11 @@ export const AIWorkspace: React.FC<AIWorkspaceProps> = ({
                     {msg.toolCall.status === 'proposed' && (
                       <div className="flex items-center gap-2 pt-1">
                         <button
-                          onClick={() => handleApproveTool(msg.id)}
+                          onClick={() => void handleApproveTool(msg.id)} disabled={executingToolId === msg.id}
                           className="flex items-center gap-1 px-3 py-1.5 rounded bg-emerald-500 hover:bg-emerald-600 text-white font-medium text-xs transition-colors"
                         >
                           <Check size={13} />
-                          <span>Approve & Execute</span>
+                          <span>Approve & launch</span>
                         </button>
                         <button
                           onClick={() => handleRejectTool(msg.id)}

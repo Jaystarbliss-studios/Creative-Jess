@@ -328,6 +328,8 @@ export default function App() {
             activeApp={activeApp}
             aiConfig={aiConfig}
             onUpdateAIConfig={handleUpdateAIConfig}
+            companionState={companionState}
+            onOpenCompanionModal={() => setIsCompanionModalOpen(true)}
           />
         )}
 

@@ -9,8 +9,8 @@ Last updated: 2026-10-11
 - Workspace stack observed: React, TypeScript, Vite, Tailwind CSS.
 - Upstream catalog size: 21 repositories.
 - GitHub repository metadata checked for all 21 catalog entries; see REPOSITORY_DISCOVERY.md. This is metadata discovery only, not source inspection.
-- Upstream repositories built and smoke-tested from this workspace: 0 verified by this audit.
-- Local companion: loopback-only Node/Express service supports configured executable launches plus a persistent stdio MCP broker for configured CLI paths. CI covers health/pairing rejection, MCP tool discovery, schema validation, and the frontend build. The broker has not yet been tested against real upstream CLI binaries.
+- Upstream verification: VectorCraft desktop and CLI build passed on Windows Server 2025 using stable Rust; its real MCP server initialized and returned 32 tools. This verifies build and protocol discovery only, not an actual edit/export workflow. PhotoCraft and DesignCraft real-upstream builds are still running in separate CI jobs. Full editor acceptance workflows verified: 0.
+- Local companion: loopback-only Node/Express service supports configured executable launches plus a persistent stdio MCP broker for configured CLI paths. CI covers health/pairing rejection, MCP tool discovery, schema validation, and the frontend build. The real VectorCraft CLI at upstream commit `53bc86fdb454ed33cd26cba5e29695ebe0befeff` passed MCP initialize/tools/list and reported 32 tools in workflow run `38162282458`; no tool-call or editing/export acceptance operation has been verified yet.
 - File import: Project Browser uses IndexedDB to store real selected file bytes and localStorage for project metadata. Download of imported originals is implemented. Suggested app mappings do not imply format compatibility.
 - Cloud AI route: server-side Gemini route added; requires GEMINI_API_KEY and a protected deployment.
 - Local AI: the workspace lets the user set an Ollama-compatible endpoint and model, saves those preferences on the device, and tests `/api/tags`. Chat/function calling still depends on the local runtime, model support, and browser CORS/network policy.
@@ -45,7 +45,7 @@ A UI preview, mocked result, screenshot, or successful TypeScript compilation is
 | lightcraft | not_inspected | inspect RAW codecs, native/web support, and sample export |
 | filmcraft | not_inspected | inspect timeline engine, media dependencies, automation API, sample render |
 | artcraft-services | not_inspected | audit API, auth, deployment, secrets, dependencies, and license |
-| vectorcraft | not_inspected | inspect build targets, documented control interface, SVG round trip |
+| vectorcraft | build_passed | Windows CI built desktop + CLI and MCP initialize/tools/list returned 32 tools at upstream commit `53bc86fdb454ed33cd26cba5e29695ebe0befeff`; next run a real SVG open/edit/export round trip |
 | craft-launcher | not_inspected | inspect launcher/update behavior and security boundaries |
 | craft-fonts | not_inspected | inspect font catalog, font licenses, distribution constraints |
 | cadcraft | not_inspected | inspect geometry engine, import/export, precision tests |

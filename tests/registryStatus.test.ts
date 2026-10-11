@@ -35,3 +35,11 @@ test('only apps with CI build and MCP evidence carry verified smoke/build status
 test('no app is marked integrated_verified before editing/export acceptance passes', () => {
   assert.equal(CRAFT_APPS.filter((app) => app.status === 'integrated_verified').length, 0);
 });
+
+test('repositories with unresolved redistribution/security blockers stay blocked', () => {
+  for (const id of ['artcraftx', 'artcraft-services']) {
+    const app = CRAFT_APPS.find((candidate) => candidate.id === id);
+    assert.ok(app, 'missing catalog entry for ' + id);
+    assert.equal(app.status, 'blocked', id + ' must remain blocked until license/security review is resolved');
+  }
+});

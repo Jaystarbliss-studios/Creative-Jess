@@ -22,14 +22,16 @@ Checked through GitHub repository metadata on 2026-10-11. This is a discovery sn
 | [deckcraft](https://github.com/storytold/deckcraft) | Rust | Apache-2.0 | 3,080 | Verify PPTX import/export with a real fixture |
 | [craft-libs](https://github.com/storytold/craft-libs) | Rust | Apache-2.0 | 176 | Inspect workspace crates and dependency/version compatibility |
 | [gridcraft](https://github.com/storytold/gridcraft) | Rust | Apache-2.0 | 5,206 | Inspect formula engine and spreadsheet import/export |
-| [craft-repo-status-app](https://github.com/storytold/craft-repo-status-app) | Rust | No SPDX license reported | 1,063 | Resolve license; inspect as optional developer utility |
+| [craft-repo-status-app](https://github.com/storytold/craft-repo-status-app) | Rust | Cargo workspace says MIT; GitHub metadata has no SPDX and root LICENSE was not found | 1,063 | Confirm license files for all distributed files; inspect as optional developer utility |
 | [photocraft-corpus](https://github.com/storytold/photocraft-corpus) | JavaScript | Apache-2.0 | 5,326 | Verify fixture provenance and any embedded asset licenses |
 | [terraform-aws-observability-accelerator](https://github.com/storytold/terraform-aws-observability-accelerator) | Not reported | Apache-2.0 | 2,605 | Separate infrastructure concern; do not provision AWS resources without explicit approval |
 
 ## Interpretation and caveats
 
 - The license column is the SPDX value (or lack of one) reported by GitHub repository metadata. It is not a substitute for reading each repository's LICENSE/COPYING files, package manifests, dependency licenses, model terms, fonts, fixtures, or third-party assets.
-- `NOASSERTION` means GitHub did not assert a recognized license from its metadata; it does not establish that all files are unlicensed or freely redistributable. Inspect the repository before reuse.
+- `artcraftx` has no root LICENSE file at the reviewed path, and its root Cargo workspace does not declare a workspace license. Do not assume it is redistributable; inspect per-crate licenses and obtain clarification from maintainers.
+- `artcraft-services` has no root LICENSE file at the reviewed path and GitHub reports `NOASSERTION`; do not assume it is redistributable. Audit per-crate manifests, deployment assets, secrets/configuration, and third-party terms before reuse.
+- `craft-repo-status-app` has no root LICENSE file at the reviewed path, but its Cargo workspace declares MIT. Verify whether that declaration covers every file and any bundled assets.
 - GitHub's repository size is an approximate repository-size figure in KB, not an exact checkout size or an estimate of compiled artifacts. The very large reported sizes for ArtCraft and ArtCraft Services make a targeted manifest/history/LFS review preferable to blindly cloning and building both first.
 - Metadata lookups do not prove that any project builds on Windows, supports WebAssembly, exposes MCP/CLI/JSON control, or works with a real file. Those claims require source inspection and reproducible tests.
 - At this discovery stage, all 21 repositories remain `not_inspected` under the stricter source/build/smoke-test status definitions in [INTEGRATION_STATUS.md](./INTEGRATION_STATUS.md).

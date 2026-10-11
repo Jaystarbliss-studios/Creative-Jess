@@ -144,11 +144,19 @@ export const ProjectBrowser: React.FC<ProjectBrowserProps> = ({
       const projectFolder = await chosenRoot.getDirectoryHandle(folderName, { create: true });
       let exported = 0;
       let missing = 0;
+      const usedNames = new Set<string>();
       for (const asset of activeProject.assets) {
         if (!asset.contentStoredLocally) { missing++; continue; }
         const stored = await getAssetFile(asset.id);
         if (!stored) { missing++; continue; }
-        const fileName = safeFolderSegment(stored.name);
+        let fileName = safeFolderSegment(stored.name);
+        if (usedNames.has(fileName.toLowerCase())) {
+          const dot = fileName.lastIndexOf('.');
+          const stem = dot > 0 ? fileName.slice(0, dot) : fileName;
+          const extension = dot > 0 ? fileName.slice(dot) : '';
+          fileName = stem + '-' + safeFolderSegment(asset.id.slice(-8)) + extension;
+        }
+        usedNames.add(fileName.toLowerCase());
         const fileHandle = await projectFolder.getFileHandle(fileName, { create: true });
         const writable = await fileHandle.createWritable();
         await writable.write(stored.blob);

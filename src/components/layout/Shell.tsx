@@ -207,7 +207,7 @@ export const Shell: React.FC<ShellProps> = ({
             <button
               onClick={onOpenCompanionModal}
               className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded border text-xs font-medium transition-colors ${
-                companionState.connected
+                companionState.connected && companionState.tokenPaired
                   ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400'
                   : 'border-[var(--border-subtle)] bg-[var(--bg-elevated)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
               }`}
@@ -215,7 +215,7 @@ export const Shell: React.FC<ShellProps> = ({
             >
               <Laptop size={13} />
               <span className="hidden md:inline font-mono text-[11px]">
-                {companionState.connected ? 'Companion Paired' : 'Companion Bridge'}
+                {companionState.connected && companionState.tokenPaired ? 'Companion Paired' : companionState.connected ? 'Companion Available' : 'Companion Bridge'}
               </span>
             </button>
           </div>

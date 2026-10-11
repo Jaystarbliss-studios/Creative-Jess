@@ -66,8 +66,11 @@ class LocalCompanionService {
 
   public async pair(token: string): Promise<{ success: boolean; message: string }> {
     if (!token || token.trim().length < 8) return { success: false, message: 'Enter the pairing token provided by the installed companion.' };
+    const pairingController = new AbortController();
+    const pairingTimeout = setTimeout(() => pairingController.abort(), 2500);
     try {
       const response = await fetch('http://127.0.0.1:' + this.state.port + '/pair', {
+        signal: pairingController.signal,
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Craft-Origin': 'craft-workspace-web' },
         body: JSON.stringify({ token: token.trim() }),
@@ -92,6 +95,8 @@ class LocalCompanionService {
       this.notify();
       const detail = error instanceof Error ? error.message : 'Unknown connection error';
       return { success: false, message: 'Could not pair with the local companion. Confirm it is installed, running, and permits this browser origin. Details: ' + detail };
+    } finally {
+      clearTimeout(pairingTimeout);
     }
   }
 

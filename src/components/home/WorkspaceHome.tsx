@@ -167,7 +167,7 @@ export const WorkspaceHome: React.FC<WorkspaceHomeProps> = ({
         </div>
         <div className="divide-y divide-[var(--border-subtle)] border-y border-[var(--border-subtle)]">
           {filteredApps.filter((item) => ['visual', 'video_audio', 'design_publishing', 'technical_data'].includes(item.category)).map((app) => (
-            <div key={app.id} className="grid grid-cols-[minmax(0,1fr)_150px_auto] items-center gap-3 py-3">
+            <div key={app.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 py-3 sm:grid-cols-[minmax(0,1fr)_140px_auto]">
               <div className="flex min-w-0 items-center gap-3">
                 <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: app.color }} aria-hidden="true" />
                 <div className="min-w-0">

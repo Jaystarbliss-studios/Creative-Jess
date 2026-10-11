@@ -52,7 +52,7 @@ foreach ($repo in $repositories) {
             $selected = @()
             $desktopPackage = $metadata.packages | Where-Object { $_.name -eq $repo -or $_.manifest_path.EndsWith('\apps\' + $repo + '\Cargo.toml') -or $_.manifest_path.EndsWith('\crates\desktop\' + $repo + '\Cargo.toml') -or ($_.targets | Where-Object { $_.kind -contains 'bin' -and $_.name -eq $repo }) } | Select-Object -First 1
             if ($desktopPackage) { $selected += $desktopPackage }
-            foreach ($package in @($metadata.packages | Where-Object { $_.name -match '-(cli|automation|mcp)(-|$)' -or ($_.targets | Where-Object { $_.kind -contains 'bin' -and $_.name -match '-(cli|automation|mcp)' }) })) {$' })) {
+            foreach ($package in @($metadata.packages | Where-Object { $_.name -match '-(cli|automation|mcp)(-|$)' -or ($_.targets | Where-Object { $_.kind -contains 'bin' -and $_.name -match '-(cli|automation|mcp)' }) })) {
                 if (-not ($selected | Where-Object { $_.name -eq $package.name })) { $selected += $package }
             }
             if ($selected.Count -eq 0) {
@@ -68,7 +68,7 @@ foreach ($repo in $repositories) {
                 foreach ($target in @($package.targets | Where-Object { $_.kind -contains 'bin' })) {
                     $executable = Join-Path (Join-Path $destination 'target\release') ($target.name + '.exe')
                     if (-not (Test-Path $executable)) { continue }
-                    if (($package.name -match '-(cli|automation|mcp)(-|$)') -or ($target.name -match '-(cli|automation|mcp)')) {$') -or ($target.name -match '-(cli|automation|mcp)$')) {
+                    if (($package.name -match '-(cli|automation|mcp)(-|$)') -or ($target.name -match '-(cli|automation|mcp)')) {
                         if (-not $mcpPaths.Contains($repo)) { $mcpPaths[$repo] = [System.IO.Path]::GetFullPath($executable) }
                     } elseif (($package.name -eq $repo) -or ($target.name -eq $repo) -or (-not $appPaths.Contains($repo))) {
                         if (-not $appPaths.Contains($repo)) { $appPaths[$repo] = [System.IO.Path]::GetFullPath($executable) }

@@ -137,7 +137,16 @@ export class McpBroker {
     return new McpSession(executable, ['mcp']);
   }
   async listTools(appId: string) {
-    return (await this.session(appId)).listTools();
+    const session = await this.session(appId);
+    try {
+      return await session.listTools();
+    } catch (error) {
+      if (this.sessions.get(appId) === session) {
+        this.sessions.delete(appId);
+        session.dispose();
+      }
+      throw error;
+    }
   }
   async callTool(appId: string, name: string, args: unknown) {
     const session = await this.session(appId);

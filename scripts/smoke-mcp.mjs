@@ -115,6 +115,18 @@ try {
       const savedText = await readFile(outputPath, 'utf8');
       if (!savedText.includes(marker)) throw new Error('GridCraft acceptance failed: saved CSV does not contain the cell marker.');
       acceptanceResult = { scenario: 'gridcraft-create-write-read-save-csv', verified: true, outputFormat: 'csv', outputInsideTemporaryDirectory: true };
+    } else if (acceptance === 'photocraft') {
+      const outputName = 'creative-jess-acceptance.png';
+      await callTool('doc_new', { width: 128, height: 96, mode: 'rgb', depth: 8, background: 'white', name: 'Creative Jess CI acceptance' });
+      const inspection = await callTool('doc_inspect', {});
+      if (!inspection || inspection.includes('"document":null')) throw new Error('PhotoCraft acceptance failed: no active document was created.');
+      await callTool('doc_export', { path: outputName });
+      const savedBytes = await readFile(path.join(temp, outputName));
+      const pngSignature = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+      if (savedBytes.length < 64 || !pngSignature.every((byte, index) => savedBytes[index] === byte)) {
+        throw new Error('PhotoCraft acceptance failed: exported PNG signature or file size is invalid.');
+      }
+      acceptanceResult = { scenario: 'photocraft-create-inspect-export-png', verified: true, outputFormat: 'png', outputInsideTemporaryDirectory: true, outputBytes: savedBytes.length };
     } else if (acceptance === 'deckcraft') {
       const marker = 'Creative Jess DeckCraft acceptance ' + Date.now();
       await callTool('new_presentation', {});

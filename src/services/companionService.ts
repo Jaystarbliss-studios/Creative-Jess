@@ -154,6 +154,8 @@ class LocalCompanionService {
       }
     };
     await Promise.all(Array.from({ length: Math.min(3, appIds.length) }, () => worker()));
+    this.state.registeredToolsCount = results.length;
+    this.notify();
     return results;
   }
 

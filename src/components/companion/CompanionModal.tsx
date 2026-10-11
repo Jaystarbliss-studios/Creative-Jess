@@ -145,6 +145,7 @@ export const CompanionModal: React.FC<CompanionModalProps> = ({
           <div className="space-y-2">
             <h3 className="text-xs font-semibold text-[var(--text-primary)]">Configured MCP editors ({companionState.availableMcpApps.length})</h3>
             <p className="text-[11px] leading-relaxed text-[var(--text-muted)]">MCP tools are discovered from the actual CLI at runtime. Add CLI executable paths through CRAFT_MCP_PATHS_JSON and restart the companion. No upstream editing tool is considered available until the CLI responds to MCP initialization and tools/list.</p>
+            <p className="text-[11px] text-[var(--text-secondary)]">Discovered tools: {companionState.registeredToolsCount}</p>
             {companionState.availableMcpApps.length > 0 ? <div className="flex flex-wrap gap-2">{companionState.availableMcpApps.map((appId) => <span key={appId} className="border border-[var(--border-subtle)] px-2 py-1 font-mono text-[10px] text-[var(--text-secondary)]">{appId}</span>)}</div> : <p className="text-[11px] text-amber-400">No MCP CLI paths configured.</p>}
           </div>
 

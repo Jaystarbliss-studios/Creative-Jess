@@ -52,7 +52,559 @@ foreach ($repo in $repositories) {
             $selected = @()
             $desktopPackage = $metadata.packages | Where-Object { $_.name -eq $repo -or $_.manifest_path.EndsWith('\apps\' + $repo + '\Cargo.toml') -or $_.manifest_path.EndsWith('\crates\desktop\' + $repo + '\Cargo.toml') -or ($_.targets | Where-Object { $_.kind -contains 'bin' -and $_.name -eq $repo }) } | Select-Object -First 1
             if ($desktopPackage) { $selected += $desktopPackage }
-            foreach ($package in @($metadata.packages | Where-Object { $_.name -match '-cli$' })) {
+            foreach ($package in @($metadata.packages | Where-Object { $_.name -match '-(cli|automation|mcp)
+                if (-not ($selected | Where-Object { $_.name -eq $package.name })) { $selected += $package }
+            }
+            if ($selected.Count -eq 0) {
+                $results.Add([pscustomobject]@{ Repository = $repo; Status = 'no obvious desktop/CLI package'; Desktop = ''; McpCli = ''; Log = $logFile })
+                continue
+            }
+            $mcpSmokePassed = $false
+            foreach ($package in $selected) {
+                Write-Host "Building $repo / $($package.name)..."
+                "=== cargo build --release -p $($package.name) ===" | Out-File -FilePath $logFile -Append -Encoding utf8
+                & cargo build --release -p $package.name 2>&1 | Tee-Object -FilePath $logFile -Append | Out-Null
+                if ($LASTEXITCODE -ne 0) { Write-Warning "Build failed for $repo / $($package.name). See $logFile"; continue }
+                foreach ($target in @($package.targets | Where-Object { $_.kind -contains 'bin' })) {
+                    $executable = Join-Path (Join-Path $destination 'target\release') ($target.name + '.exe')
+                    if (-not (Test-Path $executable)) { continue }
+                    if (($package.name -match '-(cli|automation|mcp)
+                        if (-not $mcpPaths.Contains($repo)) { $mcpPaths[$repo] = [System.IO.Path]::GetFullPath($executable) }
+                    } elseif (($package.name -eq $repo) -or ($target.name -eq $repo) -or (-not $appPaths.Contains($repo))) {
+                        if (-not $appPaths.Contains($repo)) { $appPaths[$repo] = [System.IO.Path]::GetFullPath($executable) }
+                    }
+                }
+            }
+            if ($mcpPaths.Contains($repo)) {
+                Write-Host "Smoke-testing actual MCP CLI for $repo..."
+                "=== node scripts/smoke-mcp.mjs --binary $($mcpPaths[$repo]) ===" | Out-File -FilePath $logFile -Append -Encoding utf8
+                $smokeArgs = @((Join-Path $PSScriptRoot 'smoke-mcp.mjs'), '--binary', $mcpPaths[$repo])
+                if ($repo -in @('photocraft', 'vectorcraft')) { $smokeArgs += '--scoped-roots' }
+                & node @smokeArgs 2>&1 | Tee-Object -FilePath $logFile -Append | Out-Null
+                $mcpSmokePassed = ($LASTEXITCODE -eq 0)
+                if (-not $mcpSmokePassed) { Write-Warning "MCP smoke test failed for $repo. See $logFile" }
+            }
+            $status = if ($mcpPaths.Contains($repo) -and $appPaths.Contains($repo) -and $mcpSmokePassed) { 'desktop and MCP built; MCP smoke passed' } elseif ($mcpPaths.Contains($repo) -and $mcpSmokePassed) { 'MCP built and smoke-tested; desktop not found' } elseif ($mcpPaths.Contains($repo)) { 'MCP CLI built; MCP smoke failed' } elseif ($appPaths.Contains($repo)) { 'desktop built; MCP CLI not found' } else { 'no executable verified; inspect build log' }
+            $results.Add([pscustomobject]@{ Repository = $repo; Status = $status; Desktop = $appPaths[$repo]; McpCli = $mcpPaths[$repo]; Log = $logFile })
+        } finally { Pop-Location }
+    } catch {
+        Write-Warning ($repo + ': ' + $_.Exception.Message)
+        $results.Add([pscustomobject]@{ Repository = $repo; Status = 'failed: ' + $_.Exception.Message; Desktop = ''; McpCli = ''; Log = $logFile })
+    }
+}
+
+$configDirectory = Join-Path (Split-Path $PSScriptRoot -Parent) 'config'
+New-Item -ItemType Directory -Force -Path $configDirectory | Out-Null
+$pathScript = Join-Path $configDirectory 'local-companion-paths.ps1'
+$projectRoot = Join-Path $Root 'CraftProjects'
+$exportRoot = Join-Path $projectRoot 'exports'
+New-Item -ItemType Directory -Force -Path $projectRoot, $exportRoot | Out-Null
+$scopedRoots = [ordered]@{}
+foreach ($repo in @('photocraft', 'vectorcraft')) {
+    if ($mcpPaths.Contains($repo)) {
+        $scopedRoots[$repo] = [ordered]@{ readRoot = [System.IO.Path]::GetFullPath($projectRoot); writeRoot = [System.IO.Path]::GetFullPath($exportRoot) }
+    }
+}
+$appJson = ConvertTo-Json -InputObject $appPaths -Compress
+$mcpJson = ConvertTo-Json -InputObject $mcpPaths -Compress
+$rootsJson = ConvertTo-Json -InputObject $scopedRoots -Compress -Depth 5
+$extraArgs = [ordered]@{}
+if ($mcpPaths.Contains('pdfcraft')) { $extraArgs['pdfcraft'] = @('--root', [System.IO.Path]::GetFullPath($projectRoot)) }
+$extraArgsJson = ConvertTo-Json -InputObject $extraArgs -Compress -Depth 5
+@(
+    '# Generated by scripts/bootstrap-upstream.ps1. Local absolute paths; do not commit this file.'
+    ('$env:CRAFT_APP_PATHS_JSON = ''' + $appJson.Replace("'", "''") + '''')
+    ('$env:CRAFT_MCP_PATHS_JSON = ''' + $mcpJson.Replace("'", "''") + '''')
+    ('$env:CRAFT_MCP_SCOPED_ROOTS_JSON = ''' + $rootsJson.Replace("'", "''") + '''')
+    ('$env:CRAFT_MCP_EXTRA_ARGS_JSON = ''' + $extraArgsJson.Replace("'", "''") + '''')
+    '# Copy working files into the project root above; scoped MCP exports are limited to the exports subfolder.'
+    '# Optional: set CRAFT_WORKSPACE_ORIGINS to the actual web workspace origin.'
+) | Set-Content -Path $pathScript -Encoding utf8
+$results | Format-Table Repository, Status, Desktop, McpCli -AutoSize
+Write-Host ''
+Write-Host "Generated local path configuration: $pathScript"
+Write-Host "Build logs: $LogRoot"
+Write-Host 'Review every build log and test each CLI. This script does not mark upstream apps verified.'
+ -or ($_.targets | Where-Object { $_.kind -contains 'bin' -and $_.name -match '-(cli|automation|mcp)
+                if (-not ($selected | Where-Object { $_.name -eq $package.name })) { $selected += $package }
+            }
+            if ($selected.Count -eq 0) {
+                $results.Add([pscustomobject]@{ Repository = $repo; Status = 'no obvious desktop/CLI package'; Desktop = ''; McpCli = ''; Log = $logFile })
+                continue
+            }
+            $mcpSmokePassed = $false
+            foreach ($package in $selected) {
+                Write-Host "Building $repo / $($package.name)..."
+                "=== cargo build --release -p $($package.name) ===" | Out-File -FilePath $logFile -Append -Encoding utf8
+                & cargo build --release -p $package.name 2>&1 | Tee-Object -FilePath $logFile -Append | Out-Null
+                if ($LASTEXITCODE -ne 0) { Write-Warning "Build failed for $repo / $($package.name). See $logFile"; continue }
+                foreach ($target in @($package.targets | Where-Object { $_.kind -contains 'bin' })) {
+                    $executable = Join-Path (Join-Path $destination 'target\release') ($target.name + '.exe')
+                    if (-not (Test-Path $executable)) { continue }
+                    if (($package.name -match '-cli$') -or ($target.name -match '-cli$')) {
+                        if (-not $mcpPaths.Contains($repo)) { $mcpPaths[$repo] = [System.IO.Path]::GetFullPath($executable) }
+                    } elseif (($package.name -eq $repo) -or ($target.name -eq $repo) -or (-not $appPaths.Contains($repo))) {
+                        if (-not $appPaths.Contains($repo)) { $appPaths[$repo] = [System.IO.Path]::GetFullPath($executable) }
+                    }
+                }
+            }
+            if ($mcpPaths.Contains($repo)) {
+                Write-Host "Smoke-testing actual MCP CLI for $repo..."
+                "=== node scripts/smoke-mcp.mjs --binary $($mcpPaths[$repo]) ===" | Out-File -FilePath $logFile -Append -Encoding utf8
+                $smokeArgs = @((Join-Path $PSScriptRoot 'smoke-mcp.mjs'), '--binary', $mcpPaths[$repo])
+                if ($repo -in @('photocraft', 'vectorcraft')) { $smokeArgs += '--scoped-roots' }
+                & node @smokeArgs 2>&1 | Tee-Object -FilePath $logFile -Append | Out-Null
+                $mcpSmokePassed = ($LASTEXITCODE -eq 0)
+                if (-not $mcpSmokePassed) { Write-Warning "MCP smoke test failed for $repo. See $logFile" }
+            }
+            $status = if ($mcpPaths.Contains($repo) -and $appPaths.Contains($repo) -and $mcpSmokePassed) { 'desktop and MCP built; MCP smoke passed' } elseif ($mcpPaths.Contains($repo) -and $mcpSmokePassed) { 'MCP built and smoke-tested; desktop not found' } elseif ($mcpPaths.Contains($repo)) { 'MCP CLI built; MCP smoke failed' } elseif ($appPaths.Contains($repo)) { 'desktop built; MCP CLI not found' } else { 'no executable verified; inspect build log' }
+            $results.Add([pscustomobject]@{ Repository = $repo; Status = $status; Desktop = $appPaths[$repo]; McpCli = $mcpPaths[$repo]; Log = $logFile })
+        } finally { Pop-Location }
+    } catch {
+        Write-Warning ($repo + ': ' + $_.Exception.Message)
+        $results.Add([pscustomobject]@{ Repository = $repo; Status = 'failed: ' + $_.Exception.Message; Desktop = ''; McpCli = ''; Log = $logFile })
+    }
+}
+
+$configDirectory = Join-Path (Split-Path $PSScriptRoot -Parent) 'config'
+New-Item -ItemType Directory -Force -Path $configDirectory | Out-Null
+$pathScript = Join-Path $configDirectory 'local-companion-paths.ps1'
+$projectRoot = Join-Path $Root 'CraftProjects'
+$exportRoot = Join-Path $projectRoot 'exports'
+New-Item -ItemType Directory -Force -Path $projectRoot, $exportRoot | Out-Null
+$scopedRoots = [ordered]@{}
+foreach ($repo in @('photocraft', 'vectorcraft')) {
+    if ($mcpPaths.Contains($repo)) {
+        $scopedRoots[$repo] = [ordered]@{ readRoot = [System.IO.Path]::GetFullPath($projectRoot); writeRoot = [System.IO.Path]::GetFullPath($exportRoot) }
+    }
+}
+$appJson = ConvertTo-Json -InputObject $appPaths -Compress
+$mcpJson = ConvertTo-Json -InputObject $mcpPaths -Compress
+$rootsJson = ConvertTo-Json -InputObject $scopedRoots -Compress -Depth 5
+$extraArgs = [ordered]@{}
+if ($mcpPaths.Contains('pdfcraft')) { $extraArgs['pdfcraft'] = @('--root', [System.IO.Path]::GetFullPath($projectRoot)) }
+$extraArgsJson = ConvertTo-Json -InputObject $extraArgs -Compress -Depth 5
+@(
+    '# Generated by scripts/bootstrap-upstream.ps1. Local absolute paths; do not commit this file.'
+    ('$env:CRAFT_APP_PATHS_JSON = ''' + $appJson.Replace("'", "''") + '''')
+    ('$env:CRAFT_MCP_PATHS_JSON = ''' + $mcpJson.Replace("'", "''") + '''')
+    ('$env:CRAFT_MCP_SCOPED_ROOTS_JSON = ''' + $rootsJson.Replace("'", "''") + '''')
+    ('$env:CRAFT_MCP_EXTRA_ARGS_JSON = ''' + $extraArgsJson.Replace("'", "''") + '''')
+    '# Copy working files into the project root above; scoped MCP exports are limited to the exports subfolder.'
+    '# Optional: set CRAFT_WORKSPACE_ORIGINS to the actual web workspace origin.'
+) | Set-Content -Path $pathScript -Encoding utf8
+$results | Format-Table Repository, Status, Desktop, McpCli -AutoSize
+Write-Host ''
+Write-Host "Generated local path configuration: $pathScript"
+Write-Host "Build logs: $LogRoot"
+Write-Host 'Review every build log and test each CLI. This script does not mark upstream apps verified.'
+ }) })) {
+                if (-not ($selected | Where-Object { $_.name -eq $package.name })) { $selected += $package }
+            }
+            if ($selected.Count -eq 0) {
+                $results.Add([pscustomobject]@{ Repository = $repo; Status = 'no obvious desktop/CLI package'; Desktop = ''; McpCli = ''; Log = $logFile })
+                continue
+            }
+            $mcpSmokePassed = $false
+            foreach ($package in $selected) {
+                Write-Host "Building $repo / $($package.name)..."
+                "=== cargo build --release -p $($package.name) ===" | Out-File -FilePath $logFile -Append -Encoding utf8
+                & cargo build --release -p $package.name 2>&1 | Tee-Object -FilePath $logFile -Append | Out-Null
+                if ($LASTEXITCODE -ne 0) { Write-Warning "Build failed for $repo / $($package.name). See $logFile"; continue }
+                foreach ($target in @($package.targets | Where-Object { $_.kind -contains 'bin' })) {
+                    $executable = Join-Path (Join-Path $destination 'target\release') ($target.name + '.exe')
+                    if (-not (Test-Path $executable)) { continue }
+                    if (($package.name -match '-cli$') -or ($target.name -match '-cli$')) {
+                        if (-not $mcpPaths.Contains($repo)) { $mcpPaths[$repo] = [System.IO.Path]::GetFullPath($executable) }
+                    } elseif (($package.name -eq $repo) -or ($target.name -eq $repo) -or (-not $appPaths.Contains($repo))) {
+                        if (-not $appPaths.Contains($repo)) { $appPaths[$repo] = [System.IO.Path]::GetFullPath($executable) }
+                    }
+                }
+            }
+            if ($mcpPaths.Contains($repo)) {
+                Write-Host "Smoke-testing actual MCP CLI for $repo..."
+                "=== node scripts/smoke-mcp.mjs --binary $($mcpPaths[$repo]) ===" | Out-File -FilePath $logFile -Append -Encoding utf8
+                $smokeArgs = @((Join-Path $PSScriptRoot 'smoke-mcp.mjs'), '--binary', $mcpPaths[$repo])
+                if ($repo -in @('photocraft', 'vectorcraft')) { $smokeArgs += '--scoped-roots' }
+                & node @smokeArgs 2>&1 | Tee-Object -FilePath $logFile -Append | Out-Null
+                $mcpSmokePassed = ($LASTEXITCODE -eq 0)
+                if (-not $mcpSmokePassed) { Write-Warning "MCP smoke test failed for $repo. See $logFile" }
+            }
+            $status = if ($mcpPaths.Contains($repo) -and $appPaths.Contains($repo) -and $mcpSmokePassed) { 'desktop and MCP built; MCP smoke passed' } elseif ($mcpPaths.Contains($repo) -and $mcpSmokePassed) { 'MCP built and smoke-tested; desktop not found' } elseif ($mcpPaths.Contains($repo)) { 'MCP CLI built; MCP smoke failed' } elseif ($appPaths.Contains($repo)) { 'desktop built; MCP CLI not found' } else { 'no executable verified; inspect build log' }
+            $results.Add([pscustomobject]@{ Repository = $repo; Status = $status; Desktop = $appPaths[$repo]; McpCli = $mcpPaths[$repo]; Log = $logFile })
+        } finally { Pop-Location }
+    } catch {
+        Write-Warning ($repo + ': ' + $_.Exception.Message)
+        $results.Add([pscustomobject]@{ Repository = $repo; Status = 'failed: ' + $_.Exception.Message; Desktop = ''; McpCli = ''; Log = $logFile })
+    }
+}
+
+$configDirectory = Join-Path (Split-Path $PSScriptRoot -Parent) 'config'
+New-Item -ItemType Directory -Force -Path $configDirectory | Out-Null
+$pathScript = Join-Path $configDirectory 'local-companion-paths.ps1'
+$projectRoot = Join-Path $Root 'CraftProjects'
+$exportRoot = Join-Path $projectRoot 'exports'
+New-Item -ItemType Directory -Force -Path $projectRoot, $exportRoot | Out-Null
+$scopedRoots = [ordered]@{}
+foreach ($repo in @('photocraft', 'vectorcraft')) {
+    if ($mcpPaths.Contains($repo)) {
+        $scopedRoots[$repo] = [ordered]@{ readRoot = [System.IO.Path]::GetFullPath($projectRoot); writeRoot = [System.IO.Path]::GetFullPath($exportRoot) }
+    }
+}
+$appJson = ConvertTo-Json -InputObject $appPaths -Compress
+$mcpJson = ConvertTo-Json -InputObject $mcpPaths -Compress
+$rootsJson = ConvertTo-Json -InputObject $scopedRoots -Compress -Depth 5
+$extraArgs = [ordered]@{}
+if ($mcpPaths.Contains('pdfcraft')) { $extraArgs['pdfcraft'] = @('--root', [System.IO.Path]::GetFullPath($projectRoot)) }
+$extraArgsJson = ConvertTo-Json -InputObject $extraArgs -Compress -Depth 5
+@(
+    '# Generated by scripts/bootstrap-upstream.ps1. Local absolute paths; do not commit this file.'
+    ('$env:CRAFT_APP_PATHS_JSON = ''' + $appJson.Replace("'", "''") + '''')
+    ('$env:CRAFT_MCP_PATHS_JSON = ''' + $mcpJson.Replace("'", "''") + '''')
+    ('$env:CRAFT_MCP_SCOPED_ROOTS_JSON = ''' + $rootsJson.Replace("'", "''") + '''')
+    ('$env:CRAFT_MCP_EXTRA_ARGS_JSON = ''' + $extraArgsJson.Replace("'", "''") + '''')
+    '# Copy working files into the project root above; scoped MCP exports are limited to the exports subfolder.'
+    '# Optional: set CRAFT_WORKSPACE_ORIGINS to the actual web workspace origin.'
+) | Set-Content -Path $pathScript -Encoding utf8
+$results | Format-Table Repository, Status, Desktop, McpCli -AutoSize
+Write-Host ''
+Write-Host "Generated local path configuration: $pathScript"
+Write-Host "Build logs: $LogRoot"
+Write-Host 'Review every build log and test each CLI. This script does not mark upstream apps verified.'
+) -or ($target.name -match '-(cli|automation|mcp)
+                        if (-not $mcpPaths.Contains($repo)) { $mcpPaths[$repo] = [System.IO.Path]::GetFullPath($executable) }
+                    } elseif (($package.name -eq $repo) -or ($target.name -eq $repo) -or (-not $appPaths.Contains($repo))) {
+                        if (-not $appPaths.Contains($repo)) { $appPaths[$repo] = [System.IO.Path]::GetFullPath($executable) }
+                    }
+                }
+            }
+            if ($mcpPaths.Contains($repo)) {
+                Write-Host "Smoke-testing actual MCP CLI for $repo..."
+                "=== node scripts/smoke-mcp.mjs --binary $($mcpPaths[$repo]) ===" | Out-File -FilePath $logFile -Append -Encoding utf8
+                $smokeArgs = @((Join-Path $PSScriptRoot 'smoke-mcp.mjs'), '--binary', $mcpPaths[$repo])
+                if ($repo -in @('photocraft', 'vectorcraft')) { $smokeArgs += '--scoped-roots' }
+                & node @smokeArgs 2>&1 | Tee-Object -FilePath $logFile -Append | Out-Null
+                $mcpSmokePassed = ($LASTEXITCODE -eq 0)
+                if (-not $mcpSmokePassed) { Write-Warning "MCP smoke test failed for $repo. See $logFile" }
+            }
+            $status = if ($mcpPaths.Contains($repo) -and $appPaths.Contains($repo) -and $mcpSmokePassed) { 'desktop and MCP built; MCP smoke passed' } elseif ($mcpPaths.Contains($repo) -and $mcpSmokePassed) { 'MCP built and smoke-tested; desktop not found' } elseif ($mcpPaths.Contains($repo)) { 'MCP CLI built; MCP smoke failed' } elseif ($appPaths.Contains($repo)) { 'desktop built; MCP CLI not found' } else { 'no executable verified; inspect build log' }
+            $results.Add([pscustomobject]@{ Repository = $repo; Status = $status; Desktop = $appPaths[$repo]; McpCli = $mcpPaths[$repo]; Log = $logFile })
+        } finally { Pop-Location }
+    } catch {
+        Write-Warning ($repo + ': ' + $_.Exception.Message)
+        $results.Add([pscustomobject]@{ Repository = $repo; Status = 'failed: ' + $_.Exception.Message; Desktop = ''; McpCli = ''; Log = $logFile })
+    }
+}
+
+$configDirectory = Join-Path (Split-Path $PSScriptRoot -Parent) 'config'
+New-Item -ItemType Directory -Force -Path $configDirectory | Out-Null
+$pathScript = Join-Path $configDirectory 'local-companion-paths.ps1'
+$projectRoot = Join-Path $Root 'CraftProjects'
+$exportRoot = Join-Path $projectRoot 'exports'
+New-Item -ItemType Directory -Force -Path $projectRoot, $exportRoot | Out-Null
+$scopedRoots = [ordered]@{}
+foreach ($repo in @('photocraft', 'vectorcraft')) {
+    if ($mcpPaths.Contains($repo)) {
+        $scopedRoots[$repo] = [ordered]@{ readRoot = [System.IO.Path]::GetFullPath($projectRoot); writeRoot = [System.IO.Path]::GetFullPath($exportRoot) }
+    }
+}
+$appJson = ConvertTo-Json -InputObject $appPaths -Compress
+$mcpJson = ConvertTo-Json -InputObject $mcpPaths -Compress
+$rootsJson = ConvertTo-Json -InputObject $scopedRoots -Compress -Depth 5
+$extraArgs = [ordered]@{}
+if ($mcpPaths.Contains('pdfcraft')) { $extraArgs['pdfcraft'] = @('--root', [System.IO.Path]::GetFullPath($projectRoot)) }
+$extraArgsJson = ConvertTo-Json -InputObject $extraArgs -Compress -Depth 5
+@(
+    '# Generated by scripts/bootstrap-upstream.ps1. Local absolute paths; do not commit this file.'
+    ('$env:CRAFT_APP_PATHS_JSON = ''' + $appJson.Replace("'", "''") + '''')
+    ('$env:CRAFT_MCP_PATHS_JSON = ''' + $mcpJson.Replace("'", "''") + '''')
+    ('$env:CRAFT_MCP_SCOPED_ROOTS_JSON = ''' + $rootsJson.Replace("'", "''") + '''')
+    ('$env:CRAFT_MCP_EXTRA_ARGS_JSON = ''' + $extraArgsJson.Replace("'", "''") + '''')
+    '# Copy working files into the project root above; scoped MCP exports are limited to the exports subfolder.'
+    '# Optional: set CRAFT_WORKSPACE_ORIGINS to the actual web workspace origin.'
+) | Set-Content -Path $pathScript -Encoding utf8
+$results | Format-Table Repository, Status, Desktop, McpCli -AutoSize
+Write-Host ''
+Write-Host "Generated local path configuration: $pathScript"
+Write-Host "Build logs: $LogRoot"
+Write-Host 'Review every build log and test each CLI. This script does not mark upstream apps verified.'
+ -or ($_.targets | Where-Object { $_.kind -contains 'bin' -and $_.name -match '-(cli|automation|mcp)
+                if (-not ($selected | Where-Object { $_.name -eq $package.name })) { $selected += $package }
+            }
+            if ($selected.Count -eq 0) {
+                $results.Add([pscustomobject]@{ Repository = $repo; Status = 'no obvious desktop/CLI package'; Desktop = ''; McpCli = ''; Log = $logFile })
+                continue
+            }
+            $mcpSmokePassed = $false
+            foreach ($package in $selected) {
+                Write-Host "Building $repo / $($package.name)..."
+                "=== cargo build --release -p $($package.name) ===" | Out-File -FilePath $logFile -Append -Encoding utf8
+                & cargo build --release -p $package.name 2>&1 | Tee-Object -FilePath $logFile -Append | Out-Null
+                if ($LASTEXITCODE -ne 0) { Write-Warning "Build failed for $repo / $($package.name). See $logFile"; continue }
+                foreach ($target in @($package.targets | Where-Object { $_.kind -contains 'bin' })) {
+                    $executable = Join-Path (Join-Path $destination 'target\release') ($target.name + '.exe')
+                    if (-not (Test-Path $executable)) { continue }
+                    if (($package.name -match '-cli$') -or ($target.name -match '-cli$')) {
+                        if (-not $mcpPaths.Contains($repo)) { $mcpPaths[$repo] = [System.IO.Path]::GetFullPath($executable) }
+                    } elseif (($package.name -eq $repo) -or ($target.name -eq $repo) -or (-not $appPaths.Contains($repo))) {
+                        if (-not $appPaths.Contains($repo)) { $appPaths[$repo] = [System.IO.Path]::GetFullPath($executable) }
+                    }
+                }
+            }
+            if ($mcpPaths.Contains($repo)) {
+                Write-Host "Smoke-testing actual MCP CLI for $repo..."
+                "=== node scripts/smoke-mcp.mjs --binary $($mcpPaths[$repo]) ===" | Out-File -FilePath $logFile -Append -Encoding utf8
+                $smokeArgs = @((Join-Path $PSScriptRoot 'smoke-mcp.mjs'), '--binary', $mcpPaths[$repo])
+                if ($repo -in @('photocraft', 'vectorcraft')) { $smokeArgs += '--scoped-roots' }
+                & node @smokeArgs 2>&1 | Tee-Object -FilePath $logFile -Append | Out-Null
+                $mcpSmokePassed = ($LASTEXITCODE -eq 0)
+                if (-not $mcpSmokePassed) { Write-Warning "MCP smoke test failed for $repo. See $logFile" }
+            }
+            $status = if ($mcpPaths.Contains($repo) -and $appPaths.Contains($repo) -and $mcpSmokePassed) { 'desktop and MCP built; MCP smoke passed' } elseif ($mcpPaths.Contains($repo) -and $mcpSmokePassed) { 'MCP built and smoke-tested; desktop not found' } elseif ($mcpPaths.Contains($repo)) { 'MCP CLI built; MCP smoke failed' } elseif ($appPaths.Contains($repo)) { 'desktop built; MCP CLI not found' } else { 'no executable verified; inspect build log' }
+            $results.Add([pscustomobject]@{ Repository = $repo; Status = $status; Desktop = $appPaths[$repo]; McpCli = $mcpPaths[$repo]; Log = $logFile })
+        } finally { Pop-Location }
+    } catch {
+        Write-Warning ($repo + ': ' + $_.Exception.Message)
+        $results.Add([pscustomobject]@{ Repository = $repo; Status = 'failed: ' + $_.Exception.Message; Desktop = ''; McpCli = ''; Log = $logFile })
+    }
+}
+
+$configDirectory = Join-Path (Split-Path $PSScriptRoot -Parent) 'config'
+New-Item -ItemType Directory -Force -Path $configDirectory | Out-Null
+$pathScript = Join-Path $configDirectory 'local-companion-paths.ps1'
+$projectRoot = Join-Path $Root 'CraftProjects'
+$exportRoot = Join-Path $projectRoot 'exports'
+New-Item -ItemType Directory -Force -Path $projectRoot, $exportRoot | Out-Null
+$scopedRoots = [ordered]@{}
+foreach ($repo in @('photocraft', 'vectorcraft')) {
+    if ($mcpPaths.Contains($repo)) {
+        $scopedRoots[$repo] = [ordered]@{ readRoot = [System.IO.Path]::GetFullPath($projectRoot); writeRoot = [System.IO.Path]::GetFullPath($exportRoot) }
+    }
+}
+$appJson = ConvertTo-Json -InputObject $appPaths -Compress
+$mcpJson = ConvertTo-Json -InputObject $mcpPaths -Compress
+$rootsJson = ConvertTo-Json -InputObject $scopedRoots -Compress -Depth 5
+$extraArgs = [ordered]@{}
+if ($mcpPaths.Contains('pdfcraft')) { $extraArgs['pdfcraft'] = @('--root', [System.IO.Path]::GetFullPath($projectRoot)) }
+$extraArgsJson = ConvertTo-Json -InputObject $extraArgs -Compress -Depth 5
+@(
+    '# Generated by scripts/bootstrap-upstream.ps1. Local absolute paths; do not commit this file.'
+    ('$env:CRAFT_APP_PATHS_JSON = ''' + $appJson.Replace("'", "''") + '''')
+    ('$env:CRAFT_MCP_PATHS_JSON = ''' + $mcpJson.Replace("'", "''") + '''')
+    ('$env:CRAFT_MCP_SCOPED_ROOTS_JSON = ''' + $rootsJson.Replace("'", "''") + '''')
+    ('$env:CRAFT_MCP_EXTRA_ARGS_JSON = ''' + $extraArgsJson.Replace("'", "''") + '''')
+    '# Copy working files into the project root above; scoped MCP exports are limited to the exports subfolder.'
+    '# Optional: set CRAFT_WORKSPACE_ORIGINS to the actual web workspace origin.'
+) | Set-Content -Path $pathScript -Encoding utf8
+$results | Format-Table Repository, Status, Desktop, McpCli -AutoSize
+Write-Host ''
+Write-Host "Generated local path configuration: $pathScript"
+Write-Host "Build logs: $LogRoot"
+Write-Host 'Review every build log and test each CLI. This script does not mark upstream apps verified.'
+ }) })) {
+                if (-not ($selected | Where-Object { $_.name -eq $package.name })) { $selected += $package }
+            }
+            if ($selected.Count -eq 0) {
+                $results.Add([pscustomobject]@{ Repository = $repo; Status = 'no obvious desktop/CLI package'; Desktop = ''; McpCli = ''; Log = $logFile })
+                continue
+            }
+            $mcpSmokePassed = $false
+            foreach ($package in $selected) {
+                Write-Host "Building $repo / $($package.name)..."
+                "=== cargo build --release -p $($package.name) ===" | Out-File -FilePath $logFile -Append -Encoding utf8
+                & cargo build --release -p $package.name 2>&1 | Tee-Object -FilePath $logFile -Append | Out-Null
+                if ($LASTEXITCODE -ne 0) { Write-Warning "Build failed for $repo / $($package.name). See $logFile"; continue }
+                foreach ($target in @($package.targets | Where-Object { $_.kind -contains 'bin' })) {
+                    $executable = Join-Path (Join-Path $destination 'target\release') ($target.name + '.exe')
+                    if (-not (Test-Path $executable)) { continue }
+                    if (($package.name -match '-cli$') -or ($target.name -match '-cli$')) {
+                        if (-not $mcpPaths.Contains($repo)) { $mcpPaths[$repo] = [System.IO.Path]::GetFullPath($executable) }
+                    } elseif (($package.name -eq $repo) -or ($target.name -eq $repo) -or (-not $appPaths.Contains($repo))) {
+                        if (-not $appPaths.Contains($repo)) { $appPaths[$repo] = [System.IO.Path]::GetFullPath($executable) }
+                    }
+                }
+            }
+            if ($mcpPaths.Contains($repo)) {
+                Write-Host "Smoke-testing actual MCP CLI for $repo..."
+                "=== node scripts/smoke-mcp.mjs --binary $($mcpPaths[$repo]) ===" | Out-File -FilePath $logFile -Append -Encoding utf8
+                $smokeArgs = @((Join-Path $PSScriptRoot 'smoke-mcp.mjs'), '--binary', $mcpPaths[$repo])
+                if ($repo -in @('photocraft', 'vectorcraft')) { $smokeArgs += '--scoped-roots' }
+                & node @smokeArgs 2>&1 | Tee-Object -FilePath $logFile -Append | Out-Null
+                $mcpSmokePassed = ($LASTEXITCODE -eq 0)
+                if (-not $mcpSmokePassed) { Write-Warning "MCP smoke test failed for $repo. See $logFile" }
+            }
+            $status = if ($mcpPaths.Contains($repo) -and $appPaths.Contains($repo) -and $mcpSmokePassed) { 'desktop and MCP built; MCP smoke passed' } elseif ($mcpPaths.Contains($repo) -and $mcpSmokePassed) { 'MCP built and smoke-tested; desktop not found' } elseif ($mcpPaths.Contains($repo)) { 'MCP CLI built; MCP smoke failed' } elseif ($appPaths.Contains($repo)) { 'desktop built; MCP CLI not found' } else { 'no executable verified; inspect build log' }
+            $results.Add([pscustomobject]@{ Repository = $repo; Status = $status; Desktop = $appPaths[$repo]; McpCli = $mcpPaths[$repo]; Log = $logFile })
+        } finally { Pop-Location }
+    } catch {
+        Write-Warning ($repo + ': ' + $_.Exception.Message)
+        $results.Add([pscustomobject]@{ Repository = $repo; Status = 'failed: ' + $_.Exception.Message; Desktop = ''; McpCli = ''; Log = $logFile })
+    }
+}
+
+$configDirectory = Join-Path (Split-Path $PSScriptRoot -Parent) 'config'
+New-Item -ItemType Directory -Force -Path $configDirectory | Out-Null
+$pathScript = Join-Path $configDirectory 'local-companion-paths.ps1'
+$projectRoot = Join-Path $Root 'CraftProjects'
+$exportRoot = Join-Path $projectRoot 'exports'
+New-Item -ItemType Directory -Force -Path $projectRoot, $exportRoot | Out-Null
+$scopedRoots = [ordered]@{}
+foreach ($repo in @('photocraft', 'vectorcraft')) {
+    if ($mcpPaths.Contains($repo)) {
+        $scopedRoots[$repo] = [ordered]@{ readRoot = [System.IO.Path]::GetFullPath($projectRoot); writeRoot = [System.IO.Path]::GetFullPath($exportRoot) }
+    }
+}
+$appJson = ConvertTo-Json -InputObject $appPaths -Compress
+$mcpJson = ConvertTo-Json -InputObject $mcpPaths -Compress
+$rootsJson = ConvertTo-Json -InputObject $scopedRoots -Compress -Depth 5
+$extraArgs = [ordered]@{}
+if ($mcpPaths.Contains('pdfcraft')) { $extraArgs['pdfcraft'] = @('--root', [System.IO.Path]::GetFullPath($projectRoot)) }
+$extraArgsJson = ConvertTo-Json -InputObject $extraArgs -Compress -Depth 5
+@(
+    '# Generated by scripts/bootstrap-upstream.ps1. Local absolute paths; do not commit this file.'
+    ('$env:CRAFT_APP_PATHS_JSON = ''' + $appJson.Replace("'", "''") + '''')
+    ('$env:CRAFT_MCP_PATHS_JSON = ''' + $mcpJson.Replace("'", "''") + '''')
+    ('$env:CRAFT_MCP_SCOPED_ROOTS_JSON = ''' + $rootsJson.Replace("'", "''") + '''')
+    ('$env:CRAFT_MCP_EXTRA_ARGS_JSON = ''' + $extraArgsJson.Replace("'", "''") + '''')
+    '# Copy working files into the project root above; scoped MCP exports are limited to the exports subfolder.'
+    '# Optional: set CRAFT_WORKSPACE_ORIGINS to the actual web workspace origin.'
+) | Set-Content -Path $pathScript -Encoding utf8
+$results | Format-Table Repository, Status, Desktop, McpCli -AutoSize
+Write-Host ''
+Write-Host "Generated local path configuration: $pathScript"
+Write-Host "Build logs: $LogRoot"
+Write-Host 'Review every build log and test each CLI. This script does not mark upstream apps verified.'
+)) {
+                        if (-not $mcpPaths.Contains($repo)) { $mcpPaths[$repo] = [System.IO.Path]::GetFullPath($executable) }
+                    } elseif (($package.name -eq $repo) -or ($target.name -eq $repo) -or (-not $appPaths.Contains($repo))) {
+                        if (-not $appPaths.Contains($repo)) { $appPaths[$repo] = [System.IO.Path]::GetFullPath($executable) }
+                    }
+                }
+            }
+            if ($mcpPaths.Contains($repo)) {
+                Write-Host "Smoke-testing actual MCP CLI for $repo..."
+                "=== node scripts/smoke-mcp.mjs --binary $($mcpPaths[$repo]) ===" | Out-File -FilePath $logFile -Append -Encoding utf8
+                $smokeArgs = @((Join-Path $PSScriptRoot 'smoke-mcp.mjs'), '--binary', $mcpPaths[$repo])
+                if ($repo -in @('photocraft', 'vectorcraft')) { $smokeArgs += '--scoped-roots' }
+                & node @smokeArgs 2>&1 | Tee-Object -FilePath $logFile -Append | Out-Null
+                $mcpSmokePassed = ($LASTEXITCODE -eq 0)
+                if (-not $mcpSmokePassed) { Write-Warning "MCP smoke test failed for $repo. See $logFile" }
+            }
+            $status = if ($mcpPaths.Contains($repo) -and $appPaths.Contains($repo) -and $mcpSmokePassed) { 'desktop and MCP built; MCP smoke passed' } elseif ($mcpPaths.Contains($repo) -and $mcpSmokePassed) { 'MCP built and smoke-tested; desktop not found' } elseif ($mcpPaths.Contains($repo)) { 'MCP CLI built; MCP smoke failed' } elseif ($appPaths.Contains($repo)) { 'desktop built; MCP CLI not found' } else { 'no executable verified; inspect build log' }
+            $results.Add([pscustomobject]@{ Repository = $repo; Status = $status; Desktop = $appPaths[$repo]; McpCli = $mcpPaths[$repo]; Log = $logFile })
+        } finally { Pop-Location }
+    } catch {
+        Write-Warning ($repo + ': ' + $_.Exception.Message)
+        $results.Add([pscustomobject]@{ Repository = $repo; Status = 'failed: ' + $_.Exception.Message; Desktop = ''; McpCli = ''; Log = $logFile })
+    }
+}
+
+$configDirectory = Join-Path (Split-Path $PSScriptRoot -Parent) 'config'
+New-Item -ItemType Directory -Force -Path $configDirectory | Out-Null
+$pathScript = Join-Path $configDirectory 'local-companion-paths.ps1'
+$projectRoot = Join-Path $Root 'CraftProjects'
+$exportRoot = Join-Path $projectRoot 'exports'
+New-Item -ItemType Directory -Force -Path $projectRoot, $exportRoot | Out-Null
+$scopedRoots = [ordered]@{}
+foreach ($repo in @('photocraft', 'vectorcraft')) {
+    if ($mcpPaths.Contains($repo)) {
+        $scopedRoots[$repo] = [ordered]@{ readRoot = [System.IO.Path]::GetFullPath($projectRoot); writeRoot = [System.IO.Path]::GetFullPath($exportRoot) }
+    }
+}
+$appJson = ConvertTo-Json -InputObject $appPaths -Compress
+$mcpJson = ConvertTo-Json -InputObject $mcpPaths -Compress
+$rootsJson = ConvertTo-Json -InputObject $scopedRoots -Compress -Depth 5
+$extraArgs = [ordered]@{}
+if ($mcpPaths.Contains('pdfcraft')) { $extraArgs['pdfcraft'] = @('--root', [System.IO.Path]::GetFullPath($projectRoot)) }
+$extraArgsJson = ConvertTo-Json -InputObject $extraArgs -Compress -Depth 5
+@(
+    '# Generated by scripts/bootstrap-upstream.ps1. Local absolute paths; do not commit this file.'
+    ('$env:CRAFT_APP_PATHS_JSON = ''' + $appJson.Replace("'", "''") + '''')
+    ('$env:CRAFT_MCP_PATHS_JSON = ''' + $mcpJson.Replace("'", "''") + '''')
+    ('$env:CRAFT_MCP_SCOPED_ROOTS_JSON = ''' + $rootsJson.Replace("'", "''") + '''')
+    ('$env:CRAFT_MCP_EXTRA_ARGS_JSON = ''' + $extraArgsJson.Replace("'", "''") + '''')
+    '# Copy working files into the project root above; scoped MCP exports are limited to the exports subfolder.'
+    '# Optional: set CRAFT_WORKSPACE_ORIGINS to the actual web workspace origin.'
+) | Set-Content -Path $pathScript -Encoding utf8
+$results | Format-Table Repository, Status, Desktop, McpCli -AutoSize
+Write-Host ''
+Write-Host "Generated local path configuration: $pathScript"
+Write-Host "Build logs: $LogRoot"
+Write-Host 'Review every build log and test each CLI. This script does not mark upstream apps verified.'
+ -or ($_.targets | Where-Object { $_.kind -contains 'bin' -and $_.name -match '-(cli|automation|mcp)
+                if (-not ($selected | Where-Object { $_.name -eq $package.name })) { $selected += $package }
+            }
+            if ($selected.Count -eq 0) {
+                $results.Add([pscustomobject]@{ Repository = $repo; Status = 'no obvious desktop/CLI package'; Desktop = ''; McpCli = ''; Log = $logFile })
+                continue
+            }
+            $mcpSmokePassed = $false
+            foreach ($package in $selected) {
+                Write-Host "Building $repo / $($package.name)..."
+                "=== cargo build --release -p $($package.name) ===" | Out-File -FilePath $logFile -Append -Encoding utf8
+                & cargo build --release -p $package.name 2>&1 | Tee-Object -FilePath $logFile -Append | Out-Null
+                if ($LASTEXITCODE -ne 0) { Write-Warning "Build failed for $repo / $($package.name). See $logFile"; continue }
+                foreach ($target in @($package.targets | Where-Object { $_.kind -contains 'bin' })) {
+                    $executable = Join-Path (Join-Path $destination 'target\release') ($target.name + '.exe')
+                    if (-not (Test-Path $executable)) { continue }
+                    if (($package.name -match '-cli$') -or ($target.name -match '-cli$')) {
+                        if (-not $mcpPaths.Contains($repo)) { $mcpPaths[$repo] = [System.IO.Path]::GetFullPath($executable) }
+                    } elseif (($package.name -eq $repo) -or ($target.name -eq $repo) -or (-not $appPaths.Contains($repo))) {
+                        if (-not $appPaths.Contains($repo)) { $appPaths[$repo] = [System.IO.Path]::GetFullPath($executable) }
+                    }
+                }
+            }
+            if ($mcpPaths.Contains($repo)) {
+                Write-Host "Smoke-testing actual MCP CLI for $repo..."
+                "=== node scripts/smoke-mcp.mjs --binary $($mcpPaths[$repo]) ===" | Out-File -FilePath $logFile -Append -Encoding utf8
+                $smokeArgs = @((Join-Path $PSScriptRoot 'smoke-mcp.mjs'), '--binary', $mcpPaths[$repo])
+                if ($repo -in @('photocraft', 'vectorcraft')) { $smokeArgs += '--scoped-roots' }
+                & node @smokeArgs 2>&1 | Tee-Object -FilePath $logFile -Append | Out-Null
+                $mcpSmokePassed = ($LASTEXITCODE -eq 0)
+                if (-not $mcpSmokePassed) { Write-Warning "MCP smoke test failed for $repo. See $logFile" }
+            }
+            $status = if ($mcpPaths.Contains($repo) -and $appPaths.Contains($repo) -and $mcpSmokePassed) { 'desktop and MCP built; MCP smoke passed' } elseif ($mcpPaths.Contains($repo) -and $mcpSmokePassed) { 'MCP built and smoke-tested; desktop not found' } elseif ($mcpPaths.Contains($repo)) { 'MCP CLI built; MCP smoke failed' } elseif ($appPaths.Contains($repo)) { 'desktop built; MCP CLI not found' } else { 'no executable verified; inspect build log' }
+            $results.Add([pscustomobject]@{ Repository = $repo; Status = $status; Desktop = $appPaths[$repo]; McpCli = $mcpPaths[$repo]; Log = $logFile })
+        } finally { Pop-Location }
+    } catch {
+        Write-Warning ($repo + ': ' + $_.Exception.Message)
+        $results.Add([pscustomobject]@{ Repository = $repo; Status = 'failed: ' + $_.Exception.Message; Desktop = ''; McpCli = ''; Log = $logFile })
+    }
+}
+
+$configDirectory = Join-Path (Split-Path $PSScriptRoot -Parent) 'config'
+New-Item -ItemType Directory -Force -Path $configDirectory | Out-Null
+$pathScript = Join-Path $configDirectory 'local-companion-paths.ps1'
+$projectRoot = Join-Path $Root 'CraftProjects'
+$exportRoot = Join-Path $projectRoot 'exports'
+New-Item -ItemType Directory -Force -Path $projectRoot, $exportRoot | Out-Null
+$scopedRoots = [ordered]@{}
+foreach ($repo in @('photocraft', 'vectorcraft')) {
+    if ($mcpPaths.Contains($repo)) {
+        $scopedRoots[$repo] = [ordered]@{ readRoot = [System.IO.Path]::GetFullPath($projectRoot); writeRoot = [System.IO.Path]::GetFullPath($exportRoot) }
+    }
+}
+$appJson = ConvertTo-Json -InputObject $appPaths -Compress
+$mcpJson = ConvertTo-Json -InputObject $mcpPaths -Compress
+$rootsJson = ConvertTo-Json -InputObject $scopedRoots -Compress -Depth 5
+$extraArgs = [ordered]@{}
+if ($mcpPaths.Contains('pdfcraft')) { $extraArgs['pdfcraft'] = @('--root', [System.IO.Path]::GetFullPath($projectRoot)) }
+$extraArgsJson = ConvertTo-Json -InputObject $extraArgs -Compress -Depth 5
+@(
+    '# Generated by scripts/bootstrap-upstream.ps1. Local absolute paths; do not commit this file.'
+    ('$env:CRAFT_APP_PATHS_JSON = ''' + $appJson.Replace("'", "''") + '''')
+    ('$env:CRAFT_MCP_PATHS_JSON = ''' + $mcpJson.Replace("'", "''") + '''')
+    ('$env:CRAFT_MCP_SCOPED_ROOTS_JSON = ''' + $rootsJson.Replace("'", "''") + '''')
+    ('$env:CRAFT_MCP_EXTRA_ARGS_JSON = ''' + $extraArgsJson.Replace("'", "''") + '''')
+    '# Copy working files into the project root above; scoped MCP exports are limited to the exports subfolder.'
+    '# Optional: set CRAFT_WORKSPACE_ORIGINS to the actual web workspace origin.'
+) | Set-Content -Path $pathScript -Encoding utf8
+$results | Format-Table Repository, Status, Desktop, McpCli -AutoSize
+Write-Host ''
+Write-Host "Generated local path configuration: $pathScript"
+Write-Host "Build logs: $LogRoot"
+Write-Host 'Review every build log and test each CLI. This script does not mark upstream apps verified.'
+ }) })) {
                 if (-not ($selected | Where-Object { $_.name -eq $package.name })) { $selected += $package }
             }
             if ($selected.Count -eq 0) {

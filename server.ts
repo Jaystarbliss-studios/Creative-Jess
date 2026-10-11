@@ -10,6 +10,28 @@ const app = express();
 app.disable('x-powered-by');
 app.use(express.json({ limit: '32kb' }));
 
+type ClientMcpTool = { appId: string; name: string; description?: string; inputSchema?: Record<string, unknown> };
+
+function mcpFunctionName(tool: ClientMcpTool): string {
+  return ('mcp_' + tool.appId + '_' + tool.name).replace(/[^a-zA-Z0-9_]/g, '_').slice(0, 60);
+}
+
+function toGeminiSchema(input: unknown, depth = 0): Record<string, unknown> {
+  if (!input || typeof input !== 'object' || Array.isArray(input) || depth > 5) return { type: Type.OBJECT, properties: {} };
+  const schema = input as Record<string, unknown>;
+  const type = schema.type === 'string' ? Type.STRING : schema.type === 'integer' || schema.type === 'number' ? Type.NUMBER : schema.type === 'boolean' ? Type.BOOLEAN : schema.type === 'array' ? Type.ARRAY : Type.OBJECT;
+  const result: Record<string, unknown> = { type };
+  if (typeof schema.description === 'string') result.description = schema.description.slice(0, 500);
+  if (Array.isArray(schema.enum) && schema.enum.length <= 50) result.enum = schema.enum.filter((v) => typeof v === 'string' || typeof v === 'number');
+  if (schema.type === 'object' && schema.properties && typeof schema.properties === 'object' && !Array.isArray(schema.properties)) {
+    const entries = Object.entries(schema.properties as Record<string, unknown>).slice(0, 30);
+    result.properties = Object.fromEntries(entries.map(([key, value]) => [key, toGeminiSchema(value, depth + 1)]));
+    if (Array.isArray(schema.required)) result.required = schema.required.filter((key): key is string => typeof key === 'string' && entries.some(([name]) => name === key));
+  }
+  if (schema.type === 'array' && schema.items) result.items = toGeminiSchema(schema.items, depth + 1);
+  return result;
+}
+
 const recentRequests = new Map<string, number[]>();
 const RATE_LIMIT = 20;
 const RATE_WINDOW_MS = 60_000;
@@ -58,23 +80,40 @@ app.post('/api/ai/chat', async (req, res) => {
 
   try {
     const client = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-    const contents = 'You are the Craft Workspace assistant. Answer helpfully and accurately. You cannot access project files or edit documents. You may call open_application only when the user explicitly asks to open or launch a specific supported application. This is only a proposal: the user must approve it in the client, and you must never claim it already happened. Current project: ' + projectName + '. Active application: ' + appName + '. User request: ' + prompt;
-    const result = await client.models.generateContent({
-      model,
-      contents,
-      config: {
-        tools: [{ functionDeclarations: [{
-          name: 'open_application',
-          description: 'Propose launching a configured native application through the paired local companion. This does not open a file or perform editing.',
-          parameters: { type: Type.OBJECT, properties: { appId: { type: Type.STRING, enum: LAUNCHABLE_APP_IDS } }, required: ['appId'] },
-        }] }],
-      },
-    });
-    const proposedCall = result.functionCalls?.find((call) => call.name === 'open_application');
-    const proposedAppId = proposedCall?.args?.appId;
-    if (typeof proposedAppId === 'string' && LAUNCHABLE_APP_IDS.includes(proposedAppId)) {
-      res.json({ text: result.text || ('I can request to launch ' + proposedAppId + '. Review and approve the action below before anything runs.'), toolProposal: { name: 'open_application', args: { appId: proposedAppId } }, model });
-      return;
+    const suppliedTools: ClientMcpTool[] = Array.isArray(req.body?.mcpTools) ? req.body.mcpTools.slice(0, 50).filter((item: unknown): item is ClientMcpTool => {
+      if (!item || typeof item !== 'object' || Array.isArray(item)) return false;
+      const tool = item as Record<string, unknown>;
+      return typeof tool.appId === 'string' && LAUNCHABLE_APP_IDS.includes(tool.appId) && typeof tool.name === 'string' && /^[a-zA-Z0-9_.:-]{1,128}$/.test(tool.name) && (tool.inputSchema === undefined || (typeof tool.inputSchema === 'object' && tool.inputSchema !== null && !Array.isArray(tool.inputSchema)));
+    }) : [];
+    const toolByFunctionName = new Map<string, ClientMcpTool>();
+    const functionDeclarations: { name: string; description: string; parameters: Record<string, unknown> }[] = [{
+      name: 'open_application',
+      description: 'Propose launching a configured native application through the paired local companion. This does not open a file or perform editing.',
+      parameters: { type: Type.OBJECT, properties: { appId: { type: Type.STRING, enum: LAUNCHABLE_APP_IDS } }, required: ['appId'] },
+    }];
+    for (const tool of suppliedTools) {
+      const name = mcpFunctionName(tool);
+      if (toolByFunctionName.has(name)) continue;
+      toolByFunctionName.set(name, tool);
+      functionDeclarations.push({ name, description: (typeof tool.description === 'string' && tool.description.trim() ? tool.description : tool.name).slice(0, 500), parameters: toGeminiSchema(tool.inputSchema || { type: 'object', properties: {} }) });
+    }
+    const contents = 'You are the Craft Workspace assistant. Answer helpfully and accurately. You cannot directly access project files. You may propose a documented MCP tool or open_application only when useful to the user. Every proposed action requires explicit user approval in the client; never claim it already happened. Current project: ' + projectName + '. Active application: ' + appName + '. User request: ' + prompt;
+    const result = await client.models.generateContent({ model, contents, config: { tools: [{ functionDeclarations }] } });
+    const proposedCall = result.functionCalls?.[0];
+    if (proposedCall?.name === 'open_application') {
+      const proposedAppId = proposedCall.args?.appId;
+      if (typeof proposedAppId === 'string' && LAUNCHABLE_APP_IDS.includes(proposedAppId)) {
+        res.json({ text: result.text || ('I can request to launch ' + proposedAppId + '. Review and approve the action below before anything runs.'), toolProposal: { name: 'open_application', args: { appId: proposedAppId } }, model });
+        return;
+      }
+    }
+    if (proposedCall && typeof proposedCall.name === 'string') {
+      const tool = toolByFunctionName.get(proposedCall.name);
+      const args = proposedCall.args;
+      if (tool && args && typeof args === 'object' && !Array.isArray(args)) {
+        res.json({ text: result.text || ('I can request the ' + tool.name + ' tool from ' + tool.appId + '. Review the arguments before approving.'), toolProposal: { name: 'mcp_tool', args: { appId: tool.appId, toolName: tool.name, arguments: args } }, model });
+        return;
+      }
     }
     const text = result.text;
     if (typeof text !== 'string' || !text.trim()) {

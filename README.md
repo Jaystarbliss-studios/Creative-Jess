@@ -4,9 +4,9 @@ Craft Workspace is the integration shell for the Storytold Craft repository ecos
 
 ## Important implementation status
 
-This repository contains a React/Vite workspace and an initial catalog of 21 upstream repository records. The catalog and workspace previews do not mean the upstream applications are fully integrated. Three upstream applications (PhotoCraft, VectorCraft, DesignCraft) have passed Windows desktop/CLI build and MCP discovery smoke tests; real editing/export workflows and full browser parity remain unverified. A separate loopback-only companion is implemented for launching configured native executables and connecting to configured MCP CLIs.
+This repository contains a React/Vite workspace and a catalog of 21 upstream repository records. The catalog and workspace previews do not mean the upstream applications are fully integrated. Eleven native creative applications have passed Windows desktop/CLI builds and real MCP tool discovery in GitHub Actions: PhotoCraft, VectorCraft, LightCraft, FilmCraft, EffectCraft, SoundCraft, WordCraft, DesignCraft, DeckCraft, CADCraft, and GridCraft. Read-only MCP calls passed for nine of those apps; CADCraft and SoundCraft advertised no eligible zero-argument read-only tool in the current smoke test. Full create/edit/save/export acceptance and browser parity remain incomplete. A separate loopback-only companion is implemented for launching configured native executables and connecting to configured MCP CLIs.
 
-Three upstream applications have now passed real Windows build and MCP protocol smoke tests in GitHub Actions: PhotoCraft, VectorCraft, and DesignCraft. Their CLI servers initialized and returned non-empty tool catalogs (21, 32, and 25 tools respectively). These are meaningful build/protocol checks, not proof of complete editing workflows or browser builds. No editor is marked fully integrated yet.
+The latest completed expanded CI runs verified desktop/CLI builds and real MCP catalogs for the apps listed above. Tool counts ranged from 11 (CADCraft) to 326 (LightCraft). A new acceptance-test pass is being added for PhotoCraft PNG export, VectorCraft SVG export, WordCraft Markdown save, GridCraft CSV save, and DeckCraft PPTX export; those scenarios are not considered passed until their workflow jobs complete successfully.
 
 The project intentionally uses conservative integration statuses. Do not change a repository to build_passed, smoke_test_passed, or integrated_verified until the corresponding real test has passed and the result is documented.
 
@@ -18,7 +18,7 @@ The project intentionally uses conservative integration statuses. Do not change 
 - Initial project browser and workspace previews.
 - Real file selection/import into IndexedDB-backed local asset storage, plus download of imported originals.
 - Browser-local persistence for project metadata, active project selection, and theme preferences.
-- Typed, fail-closed adapter registry with tests; no upstream editing/automation adapters are registered yet.
+- Typed, fail-closed adapter registry with tests; generic live MCP discovery and approved tool calls work through the companion, while app-specific typed adapters and end-to-end editing acceptance remain in progress.
 - Cloud/local AI mode selection.
 - Cloud AI chat through a server-side Gemini API route when GEMINI_API_KEY is configured as a server-side secret.
 - Ollama-compatible local chat and function-call requests, subject to local runtime, model tool-call support, and browser network/CORS policy.
@@ -39,7 +39,7 @@ Use a supported Node.js release for the installed Vite version.
 4. Run npm run verify before pushing; it performs TypeScript checking, the automated safety tests, and a production frontend build.
 5. For production, build the frontend and run npm start with NODE_ENV=production.
 
-GitHub Actions on the integration branch runs TypeScript checking, adapter/companion safety tests, a production frontend build, and a Windows upstream pilot for PhotoCraft, VectorCraft, and DesignCraft. The workspace validation and PowerShell parser checks pass on recent commits. A completed upstream pilot run confirmed desktop/CLI builds and MCP discovery for PhotoCraft and VectorCraft; a later pilot also confirmed DesignCraft. The workflow may still be running on the newest revision, so check Actions for the current head before treating the latest commit as green.
+GitHub Actions on the integration branch runs TypeScript checking, adapter/companion safety tests, registry-status checks, a production frontend build, PowerShell parser validation, and a Windows upstream pilot for 12 native creative applications. Completed expanded runs have passed build/MCP discovery for 11 apps so far; PDFCraft is still pending. The latest commit also adds five real create/export acceptance scenarios, so check Actions for that exact head before treating the new scenarios as passing.
 
 ## Security notes
 

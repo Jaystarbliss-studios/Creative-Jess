@@ -128,7 +128,7 @@ export const WorkspaceHome: React.FC<WorkspaceHomeProps> = ({
             const IconComponent = getAssetIcon(asset.type);
             const targetApp = CRAFT_APPS.find((item) => item.id === asset.compatibleAppId);
             return (
-              <div key={asset.id} className="grid grid-cols-[minmax(0,1fr)_140px_auto] items-center gap-3 py-3">
+              <div key={asset.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 py-3 sm:grid-cols-[minmax(0,1fr)_140px_auto]">
                 <div className="flex min-w-0 items-center gap-3">
                   <IconComponent size={16} className="shrink-0 text-[var(--text-muted)]" />
                   <div className="min-w-0">

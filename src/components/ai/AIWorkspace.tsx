@@ -78,7 +78,8 @@ export const AIWorkspace: React.FC<AIWorkspaceProps> = ({
       const response = await aiService.processUserPrompt(
         currentInput,
         activeProject.name,
-        activeApp ? activeApp.name : 'Workspace'
+        activeApp ? activeApp.name : 'Workspace',
+        await companionService.listAllMcpTools()
       );
 
       const assistantMsg: AIChatMessage = {
@@ -100,13 +101,34 @@ export const AIWorkspace: React.FC<AIWorkspaceProps> = ({
     if (executingToolId) return;
     const message = messages.find((item) => item.id === msgId);
     const toolCall = message?.toolCall;
-    if (!toolCall || toolCall.toolName !== 'open_application' || typeof toolCall.parameters.appId !== 'string') return;
-    const appId = toolCall.parameters.appId;
+    if (!toolCall) return;
     if (!companionState.connected || !companionState.tokenPaired) {
       onOpenCompanionModal();
-      setMessages((prev) => prev.map((item) => item.id === msgId && item.toolCall ? { ...item, toolCall: { ...item.toolCall, result: 'No launch was requested. Pair the local companion, then approve this proposal again.' } } : item));
+      setMessages((prev) => prev.map((item) => item.id === msgId && item.toolCall ? { ...item, toolCall: { ...item.toolCall, result: 'No action was run. Pair the local companion, then approve this proposal again.' } } : item));
       return;
     }
+    if (toolCall.toolName === 'mcp_tool') {
+      const appId = toolCall.parameters.appId;
+      const toolName = toolCall.parameters.toolName;
+      const args = toolCall.parameters.arguments;
+      if (typeof appId !== 'string' || typeof toolName !== 'string' || !args || typeof args !== 'object' || Array.isArray(args)) return;
+      if (!companionState.availableMcpApps.includes(appId)) {
+        setMessages((prev) => prev.map((item) => item.id === msgId && item.toolCall ? { ...item, toolCall: { ...item.toolCall, status: 'failed', result: 'No tool was run. Configure a CLI path for ' + appId + ' in CRAFT_MCP_PATHS_JSON and restart the companion.' } } : item));
+        return;
+      }
+      setExecutingToolId(msgId);
+      try {
+        const result = await companionService.callMcpTool(appId, toolName, args as Record<string, unknown>);
+        setMessages((prev) => prev.map((item) => item.id === msgId && item.toolCall ? { ...item, toolCall: { ...item.toolCall, status: result.success ? 'executed' : 'failed', result: result.output } } : item));
+      } catch (error) {
+        setMessages((prev) => prev.map((item) => item.id === msgId && item.toolCall ? { ...item, toolCall: { ...item.toolCall, status: 'failed', result: error instanceof Error ? error.message : 'MCP tool request failed.' } } : item));
+      } finally {
+        setExecutingToolId(null);
+      }
+      return;
+    }
+    if (toolCall.toolName !== 'open_application' || typeof toolCall.parameters.appId !== 'string') return;
+    const appId = toolCall.parameters.appId;
     if (!companionState.availableApps.includes(appId)) {
       setMessages((prev) => prev.map((item) => item.id === msgId && item.toolCall ? { ...item, toolCall: { ...item.toolCall, status: 'failed', result: 'No launch occurred. Configure an absolute executable path for ' + appId + ' in CRAFT_APP_PATHS_JSON, restart the companion, and ask again.' } } : item));
       return;
@@ -144,7 +166,7 @@ export const AIWorkspace: React.FC<AIWorkspaceProps> = ({
     <div className="flex h-full w-full overflow-hidden bg-[var(--bg-workspace)]">
       {/* Main Conversation Feed */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <div className="border-b border-[var(--border-subtle)] px-6 py-2 text-[11px] text-[var(--text-muted)]">AI may propose launching a configured native app. It runs only after explicit approval and a paired companion response; editing tools are not registered yet.</div>
+        <div className="border-b border-[var(--border-subtle)] px-6 py-2 text-[11px] text-[var(--text-muted)]">AI may propose launching a configured native app or calling a tool discovered from a configured local MCP CLI. Every proposal requires explicit approval; the companion validates tool names and arguments before dispatch.</div>
         {/* Top Provider Bar */}
         <div className="h-12 shrink-0 border-b border-[var(--border-subtle)] bg-[var(--bg-surface)] px-6 flex items-center justify-between gap-4 text-xs">
           <div className="flex items-center gap-3">

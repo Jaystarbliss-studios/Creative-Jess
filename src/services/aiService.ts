@@ -14,7 +14,7 @@ export interface RegisteredTool {
   isConsequential: boolean;
 }
 
-/** Keep empty until a documented application adapter has passed a real smoke test. */
+/** Native launching is the only static action. Editor tools are discovered from paired MCP CLIs at runtime and validated before dispatch. */
 export const REGISTERED_AI_TOOLS: RegisteredTool[] = [{ id: 'open_application', name: 'Launch native application', description: 'Propose starting a configured native app through the paired local companion. Requires explicit approval and does not edit files.', targetAppId: 'local-companion', parameters: [{ name: 'appId', type: 'string', description: 'Stable application ID from the workspace catalog.', required: true }], isConsequential: true }];
 
 function functionNameForTool(tool: McpToolDescriptor): string {
@@ -101,7 +101,8 @@ class AIService {
   }
 
   public setLocalEndpoint(url: string) {
-    this.config.localEndpoint = url;
+    this.config.localEndpoint = url.trim().replace(/\\/+$/, '');
+    this.persistPreferences();
     this.listeners.forEach(cb => cb({ ...this.config }));
   }
 

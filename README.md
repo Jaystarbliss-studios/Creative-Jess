@@ -1,6 +1,6 @@
 # Craft Workspace
 
-Craft Workspace is the integration shell for the Storytold Craft repository ecosystem. It is being developed as a web application first, with a planned local companion for native application access and local AI.
+Craft Workspace is the integration shell for the Storytold Craft repository ecosystem. It is being developed as a web application plus a local companion for native application access and local AI.
 
 ## Important implementation status
 
@@ -19,7 +19,7 @@ The project intentionally uses conservative integration statuses. Do not change 
 - Typed, fail-closed adapter registry with tests; no upstream editing/automation adapters are registered yet.
 - Cloud/local AI mode selection.
 - Cloud AI chat through a server-side Gemini API route when GEMINI_API_KEY is configured as a server-side secret.
-- Ollama-compatible local chat requests, subject to local runtime and browser network/CORS policy.
+- Ollama-compatible local chat and function-call requests, subject to local runtime, model tool-call support, and browser network/CORS policy.
 - Loopback-only local companion that can launch explicitly configured native executables through a structured allowlisted command; it cannot execute arbitrary shell commands.
 - Cloud AI can propose a native app launch through a constrained function declaration. The client requires explicit approval and a paired companion before sending the fixed launch command; no file editing is performed.
 - Companion pairing token is generated at launch and printed locally; configured app paths are read from CRAFT_APP_PATHS_JSON.

@@ -52,7 +52,8 @@ test('local companion exposes health and rejects unpaired command requests', asy
     const health = await healthResponse.json();
     assert.equal(health.version, '0.1.0');
     assert.deepEqual(health.availableApps, []);
-    assert.deepEqual(health.allowlistedCommands, ['open-app']);
+    assert.deepEqual(health.allowlistedCommands, ['open-app', 'mcp-list-tools', 'mcp-call-tool']);
+    assert.deepEqual(health.availableMcpApps, []);
 
     const rejectedPair = await fetch('http://127.0.0.1:' + port + '/pair', {
       method: 'POST',

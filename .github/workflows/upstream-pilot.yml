@@ -1,0 +1,75 @@
+name: Upstream MCP pilot smoke tests
+
+on:
+  workflow_dispatch:
+    inputs:
+      include_scoped_filesystem_roots:
+        description: Also verify the documented scoped read/write-root flags
+        type: boolean
+        default: true
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-smoke:
+    name: Build and smoke-test ${{ matrix.repository }}
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - repository: photocraft
+            cli_package: photocraft-cli
+            desktop_package: photocraft
+            supports_roots: true
+          - repository: vectorcraft
+            cli_package: vectorcraft-cli
+            desktop_package: vectorcraft
+            supports_roots: true
+    steps:
+      - name: Checkout integration workspace
+        uses: actions/checkout@v4
+      - name: Checkout upstream source
+        uses: actions/checkout@v4
+        with:
+          repository: storytold/${{ matrix.repository }}
+          ref: main
+          path: .upstream/${{ matrix.repository }}
+      - name: Install stable Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+      - name: Cache Cargo build outputs
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: .upstream/${{ matrix.repository }}
+      - name: Record toolchain and workspace metadata
+        shell: pwsh
+        run: |
+          rustc --version
+          cargo --version
+          cargo metadata --manifest-path ".upstream/${{ matrix.repository }}/Cargo.toml" --no-deps --format-version 1 | Out-File -Encoding utf8 ".upstream/${{ matrix.repository }}/cargo-metadata.json"
+      - name: Build desktop app and CLI
+        shell: pwsh
+        run: |
+          cargo build --manifest-path ".upstream/${{ matrix.repository }}/Cargo.toml" --release -p "${{ matrix.desktop_package }}" -p "${{ matrix.cli_package }}"
+      - name: Smoke-test actual MCP server
+        shell: pwsh
+        env:
+          INCLUDE_ROOT_FLAGS: ${{ inputs.include_scoped_filesystem_roots && matrix.supports_roots }}
+        run: |
+          $binary = (Resolve-Path ".upstream/${{ matrix.repository }}/target/release/${{ matrix.cli_package }}.exe").Path
+          if ($env:INCLUDE_ROOT_FLAGS -eq 'true') {
+            node scripts/smoke-mcp.mjs --binary $binary --scoped-roots
+          } else {
+            node scripts/smoke-mcp.mjs --binary $binary
+          }
+      - name: Upload build metadata and logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: upstream-${{ matrix.repository }}-verification
+          path: |
+            .upstream/${{ matrix.repository }}/cargo-metadata.json
+            .upstream/${{ matrix.repository }}/target/release
+          if-no-files-found: warn

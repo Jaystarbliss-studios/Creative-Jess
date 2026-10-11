@@ -68,8 +68,15 @@ export const AIWorkspace: React.FC<AIWorkspaceProps> = ({
   const saveLocalSettings = () => {
     const endpoint = localEndpointDraft.trim().replace(/\/+$/, '');
     const model = localModelDraft.trim();
-    if (!/^https?:\/\//i.test(endpoint) || !model) {
+    let parsedEndpoint: URL;
+    try {
+      parsedEndpoint = new URL(endpoint);
+    } catch {
       setLocalConnectionMessage('Enter a valid HTTP(S) endpoint and a model name.');
+      return false;
+    }
+    if (!['http:', 'https:'].includes(parsedEndpoint.protocol) || !parsedEndpoint.hostname || !model || model.length > 200) {
+      setLocalConnectionMessage('Enter a valid HTTP(S) endpoint and a model name (maximum 200 characters).');
       return false;
     }
     aiService.setLocalEndpoint(endpoint);

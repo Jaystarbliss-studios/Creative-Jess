@@ -60,7 +60,13 @@ app.get('/api/health', (_req, res) => {
 app.post('/api/ai/chat', async (req, res) => {
   const origin = req.get('origin');
   const host = req.get('host');
-  if (!origin || !host || new URL(origin).host !== host) {
+  let originHost = '';
+  try {
+    originHost = origin ? new URL(origin).host : '';
+  } catch {
+    originHost = '';
+  }
+  if (!originHost || !host || originHost !== host) {
     res.status(403).json({ error: 'A same-origin browser request is required.' });
     return;
   }

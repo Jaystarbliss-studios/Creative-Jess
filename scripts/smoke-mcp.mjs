@@ -10,13 +10,14 @@ function option(name) {
 const binary = option('--binary');
 const supportsRoots = process.argv.includes('--scoped-roots');
 const acceptance = option('--acceptance');
+const scopedRootsConfigured = supportsRoots || ['photocraft', 'vectorcraft'].includes(acceptance);
 if (!binary || !path.isAbsolute(binary)) {
   console.error('Usage: node scripts/smoke-mcp.mjs --binary <absolute-path> [--scoped-roots]');
   process.exit(2);
 }
 const temp = await mkdtemp(path.join(os.tmpdir(), 'craft-mcp-smoke-'));
 const args = ['mcp'];
-if (supportsRoots) args.push('--automation-read-root', temp, '--automation-write-root', temp);
+if (scopedRootsConfigured) args.push('--automation-read-root', temp, '--automation-write-root', temp);
 if (acceptance === 'pdfcraft') args.push('--root', temp);
 const child = spawn(binary, args, { shell: false, stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true });
 let stdout = '';
@@ -182,7 +183,7 @@ try {
       throw new Error('Unsupported acceptance scenario: ' + acceptance);
     }
   }
-  console.log(JSON.stringify({ ok: true, serverInfo: init.serverInfo, protocolVersion: init.protocolVersion, toolCount: catalog.tools.length, firstTools: catalog.tools.slice(0, 8).map((tool) => tool.name), readOnlyToolCall, scopedRootFlagsPassed: supportsRoots, acceptance: acceptanceResult }));
+  console.log(JSON.stringify({ ok: true, serverInfo: init.serverInfo, protocolVersion: init.protocolVersion, toolCount: catalog.tools.length, firstTools: catalog.tools.slice(0, 8).map((tool) => tool.name), readOnlyToolCall, scopedRootFlagsPassed: scopedRootsConfigured, acceptance: acceptanceResult }));
   child.stdin.end();
   child.kill();
 } catch (error) {

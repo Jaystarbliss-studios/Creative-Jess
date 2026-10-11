@@ -4,7 +4,7 @@ Craft Workspace is the integration shell for the Storytold Craft repository ecos
 
 ## Important implementation status
 
-This repository contains a React/Vite workspace and an initial catalog of 21 upstream repository records. The catalog and workspace previews do not mean the upstream applications are integrated. The original upstream source repositories have not yet been built and smoke-tested from this project. A separate loopback-only companion is implemented for launching configured native executables, but it is not an editor API.
+This repository contains a React/Vite workspace and an initial catalog of 21 upstream repository records. The catalog and workspace previews do not mean the upstream applications are fully integrated. Three upstream applications (PhotoCraft, VectorCraft, DesignCraft) have passed Windows desktop/CLI build and MCP discovery smoke tests; real editing/export workflows and full browser parity remain unverified. A separate loopback-only companion is implemented for launching configured native executables and connecting to configured MCP CLIs.
 
 Three upstream applications have now passed real Windows build and MCP protocol smoke tests in GitHub Actions: PhotoCraft, VectorCraft, and DesignCraft. Their CLI servers initialized and returned non-empty tool catalogs (21, 32, and 25 tools respectively). These are meaningful build/protocol checks, not proof of complete editing workflows or browser builds. No editor is marked fully integrated yet.
 

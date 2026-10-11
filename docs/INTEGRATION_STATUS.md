@@ -52,7 +52,7 @@ A UI preview, mocked result, screenshot, or successful TypeScript compilation is
 | wordcraft | not_inspected | inspect document model, file compatibility, save/export tests |
 | soundcraft | not_inspected | inspect audio backend, device permissions, export tests |
 | pdfcraft | not_inspected | inspect PDF engine, licensing, annotation/edit capabilities |
-| designcraft | not_inspected | inspect layout engine, browser/native parity, export tests |
+| designcraft | build_passed | Windows CI built desktop + CLI; MCP initialize/tools/list returned 25 tools and the read-only `list_commands` call succeeded. Next run a real document create/edit/export round trip. |
 | effectcraft | not_inspected | inspect rendering backend, GPU needs, automation interfaces |
 | deckcraft | not_inspected | inspect slide model and PPTX import/export behavior |
 | craft-libs | not_inspected | inspect public APIs, dependency compatibility, license |

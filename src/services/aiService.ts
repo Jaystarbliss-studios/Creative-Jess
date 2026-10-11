@@ -80,7 +80,7 @@ class AIService {
     activeAppName: string
   ): Promise<{ text: string }> {
     if (this.config.mode === 'local') {
-      const endpoint = this.config.localEndpoint.replace(/\\/+$/, '');
+      const endpoint = this.config.localEndpoint.replace(/\/+$/, '');
       try {
         const response = await fetch(endpoint + '/api/chat', {
           method: 'POST',

@@ -39,7 +39,7 @@ Use a supported Node.js release for the installed Vite version.
 4. Run npm run verify before pushing; it performs TypeScript checking, the automated safety tests, and a production frontend build.
 5. For production, build the frontend and run npm start with NODE_ENV=production.
 
-GitHub Actions on the integration branch runs TypeScript checking, adapter/companion safety tests, registry-status checks, a production frontend build, PowerShell parser validation, and a Windows upstream pilot for 12 native creative applications. Completed expanded run `38165237565` passed build/MCP discovery for all 12 apps, including PDFCraft. The latest commit adds six real create/export acceptance scenarios; the corresponding full workflow is queued, so do not count those scenarios as passing until their jobs finish.
+GitHub Actions on the integration branch runs TypeScript checking, adapter/companion safety tests, registry-status checks, a production frontend build, PowerShell parser validation, a Windows upstream pilot for 12 native creative applications, and a separate Windows workspace test/release-build matrix for Craft Launcher, Craft Fonts, Craft Libraries, and Craft Repo Status App. Completed expanded run `38165237565` passed build/MCP discovery for all 12 apps, including PDFCraft. The latest upstream commit adds six real create/export acceptance scenarios; the corresponding full workflow is queued, so do not count those scenarios as passing until their jobs finish. The separate support-repository workflow is also newly added and must complete before those support projects are marked build-verified.
 
 ## Security notes
 

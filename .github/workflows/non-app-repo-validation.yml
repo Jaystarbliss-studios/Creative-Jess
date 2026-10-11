@@ -1,0 +1,56 @@
+name: Validate corpus and infrastructure repositories
+
+on:
+  push:
+    branches: ["work/real-integration-foundation"]
+    paths:
+      - ".github/workflows/non-app-repo-validation.yml"
+      - "docs/NON_APP_REPOSITORY_AUDIT.md"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-photoshop-corpus:
+    name: Verify PhotoCraft PSD corpus hashes
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout integration workspace
+        uses: actions/checkout@v4
+      - name: Checkout PSD corpus
+        uses: actions/checkout@v4
+        with:
+          repository: storytold/photocraft-corpus
+          ref: main
+          path: .upstream/photocraft-corpus
+      - name: Verify every pinned corpus file
+        working-directory: .upstream/photocraft-corpus
+        run: sha256sum --check SHA256SUMS
+
+  validate-terraform:
+    name: Format and validate Terraform without provisioning
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout integration workspace
+        uses: actions/checkout@v4
+      - name: Checkout observability accelerator
+        uses: actions/checkout@v4
+        with:
+          repository: storytold/terraform-aws-observability-accelerator
+          ref: main
+          path: .upstream/terraform-aws-observability-accelerator
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
+      - name: Check HCL formatting
+        run: terraform fmt -check -recursive .upstream/terraform-aws-observability-accelerator
+      - name: Initialize root module without backend
+        working-directory: .upstream/terraform-aws-observability-accelerator
+        run: terraform init -backend=false -input=false
+      - name: Validate root module
+        working-directory: .upstream/terraform-aws-observability-accelerator
+        run: terraform validate

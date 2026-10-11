@@ -54,6 +54,19 @@ Run npm run companion on the machine where native applications are installed. On
 
 The path above is an example only; replace it with the real installed executable path. Set CRAFT_WORKSPACE_ORIGINS to the exact web origin that should be allowed to connect. The companion binds only to 127.0.0.1 and prints a fresh pairing token at startup. Enter that token in the workspace companion dialog. It currently supports process launch only; it does not prove editor readiness, edit files, or expose arbitrary shell execution. For MCP integration, set CRAFT_MCP_PATHS_JSON to absolute CLI executable paths. If read/write roots are set, both must be existing absolute directories; without roots, the upstream CLI should not be granted filesystem access. The broker starts each CLI with the fixed mcp argument, keeps the MCP process alive for the session, discovers tools from tools/list, and rejects tool names or arguments that do not match the returned schema. Every AI tool proposal still requires approval in the workspace. The companion process must run on the same computer as the configured apps. Review the protocol before production use.
 
+## Building upstream apps on Windows
+
+The companion can use real upstream CLI executables, but those binaries must exist on the computer running the companion. A starter script clones native app repositories into a separate ignored .upstream folder, attempts release builds of the matching desktop package and any -cli package, records logs, and generates local absolute-path settings:
+
+```powershell
+Set-ExecutionPolicy -Scope Process Bypass
+.\scripts\bootstrap-upstream.ps1
+.\config\local-companion-paths.ps1
+npm run companion
+```
+
+The script requires Git and Rust 1.95 or newer. It does not overwrite existing checkouts and continues past per-app build failures. ArtCraft is very large and excluded by default; add -IncludeArtCraft to opt in. This is a build aid, not a verification claim: inspect each log, confirm the generated executable path, run the app, and test a real create/open/edit/save/export workflow. ArtCraft Services and Terraform are deliberately excluded because they require separate security/deployment review.
+
 ## Upstream repositories
 
 The application directory references repositories under the storytold GitHub organization. Audit each repository's current source, license, dependencies, build targets, documented automation interface, and tests before integrating it. Do not infer versions, licenses, file formats, CLI options, MCP support, or runtime support from names or mock metadata.

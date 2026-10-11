@@ -17,7 +17,7 @@ rl.on('line', (line) => {
   if (typeof request.id !== 'number') return;
   let result = {};
   if (request.method === 'initialize') result = { protocolVersion: '2025-06-18', capabilities: { tools: {} }, serverInfo: { name: 'fake', version: '1' } };
-  else if (request.method === 'tools/list') result = { tools: [{ name: 'echo', description: 'Echo one string', inputSchema: { type: 'object', properties: { text: { type: 'string', maxLength: 20 } }, required: ['text'], additionalProperties: false }] };
+  else if (request.method === 'tools/list') result = { tools: [{ name: 'echo', description: 'Echo one string', inputSchema: { type: 'object', properties: { text: { type: 'string', maxLength: 20 } }, required: ['text'], additionalProperties: false } }] };
   else if (request.method === 'tools/call' && request.params.name === 'echo') result = { content: [{ type: 'text', text: request.params.arguments.text }] };
   else { process.stdout.write(JSON.stringify({ jsonrpc: '2.0', id: request.id, error: { code: -32601, message: 'unknown method' } }) + '\\n'); return; }
   process.stdout.write(JSON.stringify({ jsonrpc: '2.0', id: request.id, result }) + '\\n');

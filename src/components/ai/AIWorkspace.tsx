@@ -87,7 +87,7 @@ export const AIWorkspace: React.FC<AIWorkspaceProps> = ({
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         mode: aiConfig.mode,
         text: response.text,
-        toolCall: response.toolProposal ? { toolName: response.toolProposal.name, parameters: response.toolProposal.args, status: 'proposed' } : undefined,
+        toolCall: response.toolProposal ? { id: 'tool-' + (Date.now() + 1), toolName: response.toolProposal.name, parameters: response.toolProposal.args, status: 'proposed' } : undefined,
       };
 
       setMessages((prev) => [...prev, assistantMsg]);

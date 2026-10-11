@@ -68,7 +68,6 @@ app.post('/api/ai/chat', async (req, res) => {
           description: 'Propose launching a configured native application through the paired local companion. This does not open a file or perform editing.',
           parameters: { type: Type.OBJECT, properties: { appId: { type: Type.STRING, enum: LAUNCHABLE_APP_IDS } }, required: ['appId'] },
         }] }],
-        toolConfig: { functionCallingConfig: { mode: 'AUTO' } },
       },
     });
     const proposedCall = result.functionCalls?.find((call) => call.name === 'open_application');

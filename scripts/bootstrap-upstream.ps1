@@ -50,7 +50,7 @@ foreach ($repo in $repositories) {
             if ($LASTEXITCODE -ne 0) { throw "cargo metadata failed with exit code $LASTEXITCODE" }
             $metadata = ($metadataOutput -join [Environment]::NewLine) | ConvertFrom-Json
             $selected = @()
-            $desktopPackage = $metadata.packages | Where-Object { $_.name -eq $repo } | Select-Object -First 1
+            $desktopPackage = $metadata.packages | Where-Object { $_.name -eq $repo -or $_.manifest_path.EndsWith('\\apps\\' + $repo + '\\Cargo.toml') -or $_.manifest_path.EndsWith('\\crates\\desktop\\' + $repo + '\\Cargo.toml') -or ($_.targets | Where-Object { $_.kind -contains 'bin' -and $_.name -eq $repo }) } | Select-Object -First 1
             if ($desktopPackage) { $selected += $desktopPackage }
             foreach ($package in @($metadata.packages | Where-Object { $_.name -match '-cli$' })) {
                 if (-not ($selected | Where-Object { $_.name -eq $package.name })) { $selected += $package }

@@ -6,6 +6,8 @@ Craft Workspace is the integration shell for the Storytold Craft repository ecos
 
 This repository contains a React/Vite workspace and an initial catalog of 21 upstream repository records. The catalog and workspace previews do not mean the upstream applications are integrated. The original upstream source repositories have not yet been built and smoke-tested from this project. A separate loopback-only companion is implemented for launching configured native executables, but it is not an editor API.
 
+Three upstream applications have now passed real Windows build and MCP protocol smoke tests in GitHub Actions: PhotoCraft, VectorCraft, and DesignCraft. Their CLI servers initialized and returned non-empty tool catalogs (21, 32, and 25 tools respectively). These are meaningful build/protocol checks, not proof of complete editing workflows or browser builds. No editor is marked fully integrated yet.
+
 The project intentionally uses conservative integration statuses. Do not change a repository to build_passed, smoke_test_passed, or integrated_verified until the corresponding real test has passed and the result is documented.
 
 ## Current capabilities
@@ -37,7 +39,7 @@ Use a supported Node.js release for the installed Vite version.
 4. Run npm run lint and npm run build before pushing.
 5. For production, build the frontend and run npm start with NODE_ENV=production.
 
-GitHub Actions on the integration branch runs TypeScript checking, adapter/companion safety tests, and a production frontend build. These checks passed on commit 5b205f3908de63fdc2080724bab7abb4b6dfe60a. This verifies the workspace shell only; it does not compile or smoke-test the 21 upstream applications.
+GitHub Actions on the integration branch runs TypeScript checking, adapter/companion safety tests, a production frontend build, and a Windows upstream pilot for PhotoCraft, VectorCraft, and DesignCraft. The workspace validation and PowerShell parser checks pass on recent commits. A completed upstream pilot run confirmed desktop/CLI builds and MCP discovery for PhotoCraft and VectorCraft; a later pilot also confirmed DesignCraft. The workflow may still be running on the newest revision, so check Actions for the current head before treating the latest commit as green.
 
 ## Security notes
 

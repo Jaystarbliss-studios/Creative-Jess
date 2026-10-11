@@ -68,7 +68,7 @@ foreach ($repo in $repositories) {
                 foreach ($target in @($package.targets | Where-Object { $_.kind -contains 'bin' })) {
                     $executable = Join-Path (Join-Path $destination 'target\release') ($target.name + '.exe')
                     if (-not (Test-Path $executable)) { continue }
-                    if (($package.name -match '-(cli|automation|mcp)(-|$)') -or ($target.name -match '-(cli|automation|mcp)')) {
+                    if ($package.name -match '-(cli|automation|mcp)(-|$)' -or $target.name -match '-(cli|automation|mcp)') {
                         if (-not $mcpPaths.Contains($repo)) { $mcpPaths[$repo] = [System.IO.Path]::GetFullPath($executable) }
                     } elseif (($package.name -eq $repo) -or ($target.name -eq $repo) -or (-not $appPaths.Contains($repo))) {
                         if (-not $appPaths.Contains($repo)) { $appPaths[$repo] = [System.IO.Path]::GetFullPath($executable) }

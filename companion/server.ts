@@ -7,6 +7,7 @@ import path from 'node:path';
 import express, { type Request, type Response, type NextFunction } from 'express';
 import dotenv from 'dotenv';
 import { McpBroker } from './mcpBroker.js';
+import { safeChildEnvironment } from './safeEnv.js';
 
 dotenv.config();
 
@@ -170,6 +171,7 @@ app.post('/commands', async (req, res) => {
     detached: true,
     stdio: 'ignore',
     shell: false,
+    env: safeChildEnvironment(),
     windowsHide: false,
   });
 

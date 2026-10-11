@@ -2,6 +2,7 @@ import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { createInterface, type Interface } from 'node:readline';
 import { access } from 'node:fs/promises';
 import path from 'node:path';
+import { safeChildEnvironment } from './safeEnv.js';
 
 type Obj = Record<string, unknown>;
 type McpTool = { name: string; description?: string; inputSchema?: Obj; [key: string]: unknown };
@@ -52,7 +53,7 @@ class McpSession {
   private readonly ready: Promise<void>;
 
   constructor(executable: string, args: string[]) {
-    this.child = spawn(executable, args, { cwd: path.dirname(executable), shell: false, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'], env: { ...process.env } });
+    this.child = spawn(executable, args, { cwd: path.dirname(executable), shell: false, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'], env: safeChildEnvironment() });
     this.lines = createInterface({ input: this.child.stdout, crlfDelay: Infinity });
     this.lines.on('line', (line) => this.onLine(line));
     this.child.stderr.on('data', (chunk: Buffer) => { const message = chunk.toString().trim(); if (message) console.error('[craft-mcp]', message.slice(0, 1000)); });

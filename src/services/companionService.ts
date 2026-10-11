@@ -170,7 +170,10 @@ class LocalCompanionService {
     const data = await response.json().catch(() => ({}));
     if (!response.ok) return { success: false, output: typeof data?.error === 'string' ? data.error : 'MCP tool call failed (HTTP ' + response.status + ').' };
     const result = data?.result;
-    const output = typeof result?.content === 'string' ? result.content : Array.isArray(result?.content) ? result.content.map((part: { text?: unknown }) => typeof part?.text === 'string' ? part.text : JSON.stringify(part)).join('\n') : JSON.stringify(result);
+    const rawOutput = typeof result?.content === 'string' ? result.content : Array.isArray(result?.content) ? result.content.map((part: { text?: unknown }) => typeof part?.text === 'string' ? part.text : JSON.stringify(part)).join('\n') : JSON.stringify(result);
+    const output = typeof rawOutput === 'string' && rawOutput.length > 30000
+      ? rawOutput.slice(0, 30000) + '\n[Output truncated at 30,000 characters.]'
+      : rawOutput;
     return { success: result?.isError !== true, output: output || 'MCP tool returned no content.' };
   }
   public async executeAllowlistedCommand(commandName: string, args: string[]): Promise<{ success: boolean; output: string; exitCode: number }> {

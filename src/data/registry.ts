@@ -353,7 +353,7 @@ export const CRAFT_APPS: CraftApp[] = [
     hasMcp: false,
     supportedFormats: [],
     status: 'blocked',
-    statusNotes: 'GitHub metadata reports NOASSERTION and the reviewed root has no LICENSE. The workspace includes auth, billing, media, provider clients, database operations, and production CLI tools. Do not deploy, run migrations, seed databases, or contact production services; resolve license and perform an isolated security/dependency review first.',
+    statusNotes: 'GitHub reports NOASSERTION. Root LICENSE.md is explicitly marked WIP and is a fair-source license that prohibits commercial sale and use of the code to develop a competing business/product. Because this workspace is a competing creative platform, do not integrate or redistribute this code without written maintainer permission and legal review. The repo also contains auth, billing, media, provider clients, database operations, and production CLI tools; do not deploy or contact production services.',
     color: '#6366F1',
   },
   {

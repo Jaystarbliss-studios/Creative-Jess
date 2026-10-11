@@ -1,4 +1,4 @@
-import { CraftApp } from '../types';
+import { AppCategory, CraftApp } from '../types';
 
 // Catalog records are discovery metadata only until source and runtime verification is recorded.
 export const CRAFT_APPS: CraftApp[] = [

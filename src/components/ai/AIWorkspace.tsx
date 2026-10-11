@@ -78,19 +78,6 @@ export const AIWorkspace: React.FC<AIWorkspaceProps> = ({
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         mode: aiConfig.mode,
         text: response.text,
-        toolCall: response.proposedTool
-          ? {
-              id: `tool-${Date.now()}`,
-              toolName: response.proposedTool.name,
-              parameters: response.toolParams || {},
-              status: response.proposedTool.isConsequential && aiConfig.confirmConsequentialTools
-                ? 'proposed'
-                : 'executed',
-              result: response.proposedTool.isConsequential && aiConfig.confirmConsequentialTools
-                ? undefined
-                : 'Tool executed successfully through application adapter.',
-            }
-          : undefined,
       };
 
       setMessages((prev) => [...prev, assistantMsg]);

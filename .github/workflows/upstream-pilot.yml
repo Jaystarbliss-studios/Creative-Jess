@@ -68,7 +68,7 @@ jobs:
       - name: Smoke-test actual MCP server
         shell: pwsh
         env:
-          INCLUDE_ROOT_FLAGS: ${{ inputs.include_scoped_filesystem_roots && matrix.supports_roots }}
+          INCLUDE_ROOT_FLAGS: ${{ (github.event_name == 'push' || inputs.include_scoped_filesystem_roots) && matrix.supports_roots }}
         run: |
           $binary = (Resolve-Path ".upstream/${{ matrix.repository }}/target/release/${{ matrix.cli_package }}.exe").Path
           if ($env:INCLUDE_ROOT_FLAGS -eq 'true') {

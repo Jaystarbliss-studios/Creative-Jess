@@ -111,6 +111,7 @@ export const WorkspaceHome: React.FC<WorkspaceHomeProps> = ({
             <p className="text-xs text-[var(--text-muted)]">
               {activeProject.description}
             </p>
+            <p className="mt-1 text-[10px] text-[var(--text-muted)]">Project and asset entries are illustrative sample metadata unless you created or imported them in this session.</p>
           </div>
           <button
             onClick={() => onNavigateTab('projects')}

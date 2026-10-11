@@ -29,12 +29,36 @@ import { GenericCraftWorkspace } from './components/workspaces/GenericCraftWorks
 
 export default function App() {
   const [appName, setAppName] = useState('Craft Workspace');
-  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+  const [theme, setTheme] = useState<'dark' | 'light'>(() => {
+    try { return window.localStorage.getItem('craft-workspace:theme') === 'light' ? 'light' : 'dark'; } catch { return 'dark'; }
+  });
   const [currentTab, setCurrentTab] = useState<string>('home');
 
   // Projects state
-  const [projects, setProjects] = useState<Project[]>(INITIAL_PROJECTS);
-  const [activeProject, setActiveProject] = useState<Project>(INITIAL_PROJECTS[0]);
+  const [projects, setProjects] = useState<Project[]>(() => {
+    try {
+      const saved = window.localStorage.getItem('craft-workspace:projects');
+      const parsed = saved ? JSON.parse(saved) : null;
+      if (Array.isArray(parsed)) return parsed as Project[];
+    } catch {
+      // Recover to the built-in sample workspace if local data is unreadable.
+    }
+    return INITIAL_PROJECTS;
+  });
+  const [activeProject, setActiveProject] = useState<Project>(() => {
+    try {
+      const savedProjects = window.localStorage.getItem('craft-workspace:projects');
+      const parsed = savedProjects ? JSON.parse(savedProjects) : INITIAL_PROJECTS;
+      const activeId = window.localStorage.getItem('craft-workspace:active-project');
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        const match = parsed.find((project: Project) => project.id === activeId);
+        if (match) return match as Project;
+      }
+    } catch {
+      // Recover to the first sample project when persisted state cannot be read.
+    }
+    return INITIAL_PROJECTS[0];
+  });
 
   // Active editor state
   const [activeApp, setActiveApp] = useState<CraftApp | null>(null);
@@ -58,6 +82,22 @@ export default function App() {
       document.documentElement.classList.remove('light');
     }
   }, [theme]);
+
+  // Persist workspace metadata locally. Browser storage may be unavailable or full; editing remains usable in memory.
+  useEffect(() => {
+    try { window.localStorage.setItem('craft-workspace:projects', JSON.stringify(projects)); } catch (error) {
+      console.warn('Craft Workspace could not persist project metadata to browser storage.', error);
+    }
+  }, [projects]);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem('craft-workspace:active-project', activeProject.id);
+      window.localStorage.setItem('craft-workspace:theme', theme);
+    } catch {
+      // Keep current-session preferences if browser storage is unavailable.
+    }
+  }, [activeProject.id, theme]);
 
   // Subscribe to companion service updates
   useEffect(() => {
@@ -98,7 +138,7 @@ export default function App() {
       activeAppId: 'photocraft',
       assets: [],
     };
-    setProjects([newProj, ...projects]);
+    setProjects((previous) => [newProj, ...previous]);
     setActiveProject(newProj);
   };
 

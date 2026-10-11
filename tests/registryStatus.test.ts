@@ -18,6 +18,7 @@ test('only apps with CI build and MCP evidence carry verified smoke/build status
     wordcraft: 'smoke_test_passed',
     designcraft: 'smoke_test_passed',
     deckcraft: 'smoke_test_passed',
+    pdfcraft: 'smoke_test_passed',
     cadcraft: 'build_passed',
     gridcraft: 'smoke_test_passed',
   };

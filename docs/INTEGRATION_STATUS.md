@@ -9,13 +9,13 @@ Last updated: 2026-10-11
 - Workspace stack observed: React, TypeScript, Vite, Tailwind CSS.
 - Upstream catalog size: 21 repositories.
 - GitHub repository metadata checked for all 21 catalog entries; see REPOSITORY_DISCOVERY.md. This is metadata discovery only, not source inspection.
-- Upstream verification: PhotoCraft, VectorCraft, and DesignCraft desktop + CLI builds passed in Windows GitHub Actions using stable Rust. Their real MCP servers initialized and returned 21 tools (PhotoCraft), 32 tools (VectorCraft), and 25 tools (DesignCraft). DesignCraft also completed a read-only `list_commands` tool call. These checks verify build and protocol discovery, not real document/image editing or export round trips. Full editor acceptance workflows verified: 0.
+- Upstream verification: Windows Server 2025 CI built desktop + CLI packages and completed MCP initialize/tools/list for PhotoCraft (21 tools), VectorCraft (32), DesignCraft (25), LightCraft (326), FilmCraft (17), EffectCraft (27), WordCraft (16), DeckCraft (25), GridCraft (21), CADCraft (11), and SoundCraft (17). The smoke test also executed a read-only zero-argument command for PhotoCraft, VectorCraft, DesignCraft, LightCraft, FilmCraft, EffectCraft, WordCraft, DeckCraft, and GridCraft. CADCraft and SoundCraft had no eligible zero-argument read-only tool in the advertised schemas. This is real build/protocol/read-only-call evidence, not proof of create/edit/save/export acceptance. Full editor acceptance workflows verified: 0. PDFCraft is still building in a separate run; other parallel jobs are pending or in progress.
 - Local companion: loopback-only Node/Express service supports configured executable launches plus a persistent stdio MCP broker for configured CLI paths. CI covers health/pairing rejection, MCP tool discovery, schema validation, and the frontend build. The real VectorCraft CLI at upstream commit `53bc86fdb454ed33cd26cba5e29695ebe0befeff` passed MCP initialize/tools/list and reported 32 tools; the real PhotoCraft CLI at upstream commit `e5dbcab335b16ca99f540f97b27d08ef60e6626d` passed the same check and reported 21 tools in workflow run `38162282458`. No tool-call or editing/export acceptance operation has been verified yet.
 - File import: Project Browser uses IndexedDB to store real selected file bytes and localStorage for project metadata. Download of imported originals is implemented. Suggested app mappings do not imply format compatibility.
 - Cloud AI route: server-side Gemini route added; requires GEMINI_API_KEY and a protected deployment.
 - Local AI: the workspace lets the user set an Ollama-compatible endpoint and model, saves those preferences on the device, and tests `/api/tags`. Chat/function calling still depends on the local runtime, model support, and browser CORS/network policy.
 - Integration shell validation: passed in GitHub Actions on commit e28735de020adf925b3a788dd3370431255cb3dc (TypeScript check, adapter safety tests, local companion health/pairing/authorization test, production frontend build).
-- Upstream build/protocol evidence: Windows GitHub Actions run `38162282458` successfully built PhotoCraft and VectorCraft desktop + CLI packages and confirmed MCP `initialize` plus `tools/list` (21 PhotoCraft tools; 32 VectorCraft tools). This is build and protocol-discovery evidence only, not proof of actual editing, save, or export operations. DesignCraft is being checked separately.
+- Upstream build/protocol evidence: Windows GitHub Actions run `38165071495` passed build + MCP smoke checks for PhotoCraft, DesignCraft, WordCraft, DeckCraft, CADCraft, SoundCraft, EffectCraft, FilmCraft, and GridCraft; run `38165237565` passed LightCraft and additional apps as listed above. The real smoke test reports the requested scoped-root flags, not that an app enforces them; containment has not been tested. These runs do not prove editing, saving, or export acceptance.
 
 The earlier catalog contained specific versions, licenses, crate counts, file formats, and statements such as “integrated and verified” without supporting build logs or test evidence in this repository. Catalog metadata has been made conservative until each upstream repository is audited. GitHub metadata reports no SPDX license for artcraftx and craft-repo-status-app and reports NOASSERTION for artcraft-services; resolve these before redistribution/reuse. ArtCraft and ArtCraft Services report unusually large repository sizes, so inspect manifests and asset/LFS/history structure before a full clone.
 
@@ -40,23 +40,23 @@ A UI preview, mocked result, screenshot, or successful TypeScript compilation is
 | Repository | Initial status | Next verification |
 |---|---|---|
 | artcraft | not_inspected | inspect license, web/native build, model/service dependencies |
-| photocraft | build_passed | Windows CI built desktop + CLI and MCP initialize/tools/list returned 21 tools at upstream commit `e5dbcab335b16ca99f540f97b27d08ef60e6626d`; next run a real image open/edit/save/export round trip |
+| photocraft | smoke_test_passed | 21 MCP tools; read-only command_list call succeeded; file-edit/save/export acceptance still pending |
 | artcraftx | not_inspected | inspect actual role, dependencies, and supported execution target |
-| lightcraft | not_inspected | inspect RAW codecs, native/web support, and sample export |
-| filmcraft | not_inspected | inspect timeline engine, media dependencies, automation API, sample render |
+| lightcraft | smoke_test_passed | 326 MCP tools; read-only command_list call succeeded; RAW/sample export round trip still pending |
+| filmcraft | smoke_test_passed | 17 MCP tools; read-only command_list call succeeded; media import/render/export round trip still pending |
 | artcraft-services | not_inspected | audit API, auth, deployment, secrets, dependencies, and license |
-| vectorcraft | build_passed | Windows CI built desktop + CLI and MCP initialize/tools/list returned 32 tools at upstream commit `53bc86fdb454ed33cd26cba5e29695ebe0befeff`; next run a real SVG open/edit/export round trip |
+| vectorcraft | smoke_test_passed | 32 MCP tools; read-only command_list call succeeded; SVG round trip still pending |
 | craft-launcher | not_inspected | inspect launcher/update behavior and security boundaries |
 | craft-fonts | not_inspected | inspect font catalog, font licenses, distribution constraints |
-| cadcraft | not_inspected | inspect geometry engine, import/export, precision tests |
-| wordcraft | not_inspected | inspect document model, file compatibility, save/export tests |
-| soundcraft | not_inspected | inspect audio backend, device permissions, export tests |
+| cadcraft | build_passed | 11 MCP tools discovered; no zero-argument read-only call available in smoke test; drawing/export acceptance pending |
+| wordcraft | smoke_test_passed | 16 MCP tools; read-only list_commands call succeeded; document create/edit/export acceptance pending |
+| soundcraft | build_passed | 17 MCP tools discovered; no zero-argument read-only call available in smoke test; audio/session acceptance pending |
 | pdfcraft | not_inspected | inspect PDF engine, licensing, annotation/edit capabilities |
-| designcraft | build_passed | Windows CI built desktop + CLI; MCP initialize/tools/list returned 25 tools and the read-only `list_commands` call succeeded. Next run a real document create/edit/export round trip. |
-| effectcraft | not_inspected | inspect rendering backend, GPU needs, automation interfaces |
-| deckcraft | not_inspected | inspect slide model and PPTX import/export behavior |
+| designcraft | smoke_test_passed | 25 MCP tools; read-only list_commands call succeeded; document create/edit/export acceptance pending |
+| effectcraft | smoke_test_passed | 27 MCP tools; read-only list_commands call succeeded; composition/render acceptance still pending |
+| deckcraft | smoke_test_passed | 25 MCP tools; read-only list_commands call succeeded; presentation create/edit/export acceptance pending |
 | craft-libs | not_inspected | inspect public APIs, dependency compatibility, license |
-| gridcraft | not_inspected | inspect formula engine, import/export, persistence tests |
+| gridcraft | smoke_test_passed | 21 MCP tools; read-only list_commands call succeeded; workbook/formula/export acceptance pending |
 | craft-repo-status-app | not_inspected | inspect repository diagnostics and automation interface |
 | photocraft-corpus | not_inspected | inspect asset provenance, license, and fixture conventions |
 | terraform-aws-observability-accelerator | not_inspected | inspect modules and docs; never provision without explicit approval |

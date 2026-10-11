@@ -84,7 +84,7 @@ try {
     if (call.isError === true) throw new Error('Read-only MCP tool call failed: ' + safeTool.name);
     readOnlyToolCall = safeTool.name;
   }
-  console.log(JSON.stringify({ ok: true, serverInfo: init.serverInfo, protocolVersion: init.protocolVersion, toolCount: catalog.tools.length, firstTools: catalog.tools.slice(0, 8).map((tool) => tool.name), readOnlyToolCall, scopedRoots: supportsRoots }));
+  console.log(JSON.stringify({ ok: true, serverInfo: init.serverInfo, protocolVersion: init.protocolVersion, toolCount: catalog.tools.length, firstTools: catalog.tools.slice(0, 8).map((tool) => tool.name), readOnlyToolCall, scopedRootFlagsPassed: supportsRoots }));
   child.stdin.end();
   child.kill();
 } catch (error) {

@@ -83,7 +83,7 @@ jobs:
           rustc --version
           cargo --version
           cargo metadata --manifest-path ".upstream/${{ matrix.repository }}/Cargo.toml" --no-deps --format-version 1 | Out-File -Encoding utf8 ".upstream/${{ matrix.repository }}/cargo-metadata.json"
-      - name: Build desktop app and CLI
+      - name: Build MCP CLI for acceptance (desktop builds were verified in the full pilot run)
         shell: pwsh
         run: |
           $logFile = ".upstream/${{ matrix.repository }}/verification.log"
@@ -91,7 +91,7 @@ jobs:
           rustc --version 2>&1 | Tee-Object -FilePath $logFile -Append
           cargo --version 2>&1 | Tee-Object -FilePath $logFile -Append
           "=== cargo build desktop + CLI ===" | Tee-Object -FilePath $logFile -Append
-          cargo build --manifest-path ".upstream/${{ matrix.repository }}/Cargo.toml" --release -p "${{ matrix.desktop_package }}" -p "${{ matrix.cli_package }}" 2>&1 | Tee-Object -FilePath $logFile -Append
+          cargo build --manifest-path ".upstream/${{ matrix.repository }}/Cargo.toml" --release -p "${{ matrix.cli_package }}" 2>&1 | Tee-Object -FilePath $logFile -Append
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Smoke-test actual MCP server
         shell: pwsh

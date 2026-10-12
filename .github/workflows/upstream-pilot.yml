@@ -9,6 +9,10 @@ on:
       - 'scripts/smoke-mcp.mjs'
       - 'scripts/bootstrap-upstream.ps1'
       - 'companion/mcpBroker.ts'
+      - 'src/components/projects/ProjectBrowser.tsx'
+      - 'src/components/ai/**'
+      - 'src/services/**'
+      - 'README.md'
   workflow_dispatch:
     inputs:
       include_scoped_filesystem_roots:

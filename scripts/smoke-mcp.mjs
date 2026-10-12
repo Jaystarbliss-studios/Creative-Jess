@@ -158,12 +158,13 @@ try {
       acceptanceResult = { scenario: 'pdfcraft-open-rotate-save-pdf', verified: true, outputFormat: 'pdf', outputInsideTemporaryDirectory: true, outputBytes: savedPdf.length };
     } else if (acceptance === 'vectorcraft') {
       const outputName = 'creative-jess-acceptance.svg';
+      const outputPath = path.join(temp, outputName);
       await callTool('run_command', { command: 'file.new', params: { width: 320, height: 240 } });
       await callTool('draw_shape', { shape: 'rectangle', x: 24, y: 28, width: 120, height: 72, fill: '#ff0000', stroke: 'none' });
       const inspection = await callTool('inspect_document', { depth: 1, childLimit: 20 });
       if (!inspection || !inspection.toLowerCase().includes('rectangle')) throw new Error('VectorCraft acceptance failed: document inspection did not show the created rectangle.');
-      await callTool('export', { path: outputName, format: 'svg' });
-      const savedSvg = await readFile(path.join(temp, outputName), 'utf8');
+      await callTool('export', { path: outputPath, format: 'svg' });
+      const savedSvg = await readFile(outputPath, 'utf8');
       if (!savedSvg.includes('<svg') || savedSvg.length < 100) throw new Error('VectorCraft acceptance failed: exported SVG is missing or malformed.');
       acceptanceResult = { scenario: 'vectorcraft-create-draw-inspect-export-svg', verified: true, outputFormat: 'svg', outputInsideTemporaryDirectory: true, outputCharacters: savedSvg.length };
     } else if (acceptance === 'deckcraft') {

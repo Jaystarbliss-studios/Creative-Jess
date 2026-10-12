@@ -238,10 +238,11 @@ try {
       const marker = 'CreativeJessEffectAcceptance' + Date.now();
       await callTool('open_project', { new: true });
       await callTool('execute_command', { command: 'comp.new', params: { name: 'Acceptance Comp', width: 320, height: 240, frameRate: 24, duration: 2 } });
-      await callTool('execute_command', { command: 'layer.newText', params: { text: marker, size: 36, fill: '#ffffff' } });
+      const layerResult = await callTool('execute_command', { command: 'layer.newText', params: { text: marker, size: 36, fill: '#ffffff' } });
+      const layerId = JSON.parse(layerResult).layer;
       const project = await callTool('get_project', {});
-      const composition = await callTool('get_comp', {});
-      if (!project.includes('Acceptance Comp') || !composition.includes(marker)) throw new Error('EffectCraft acceptance failed: project/composition inspection did not include the composition and text layer.');
+      const layer = await callTool('get_layer', { comp: 'Acceptance Comp', layer: layerId });
+      if (!project.includes('Acceptance Comp') || !layer.includes(marker)) throw new Error('EffectCraft acceptance failed: project/layer inspection did not include the composition and text content.');
       const outputPath = path.join(temp, 'creative-jess-acceptance.ecproj');
       await callTool('save_project', { path: outputPath });
       const savedText = await readFile(outputPath, 'utf8');

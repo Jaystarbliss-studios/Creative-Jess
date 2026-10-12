@@ -5,13 +5,10 @@ import {
   AIProviderConfig, 
   AIChatMessage,
   CompanionState,
+  McpToolDescriptor,
 } from '../../types';
 import { companionService } from '../../services/companionService';
-import { 
-  aiService, 
-  REGISTERED_AI_TOOLS, 
-  RegisteredTool 
-} from '../../services/aiService';
+import { aiService } from '../../services/aiService';
 
 import { 
   Cpu, 
@@ -59,11 +56,70 @@ export const AIWorkspace: React.FC<AIWorkspaceProps> = ({
   const [localModelDraft, setLocalModelDraft] = useState(aiConfig.localModel);
   const [isCheckingLocal, setIsCheckingLocal] = useState(false);
   const [localConnectionMessage, setLocalConnectionMessage] = useState('');
+  const [mcpTools, setMcpTools] = useState<McpToolDescriptor[]>([]);
+  const [toolSearch, setToolSearch] = useState('');
+  const [isRefreshingTools, setIsRefreshingTools] = useState(false);
+  const [toolCatalogMessage, setToolCatalogMessage] = useState('');
 
   useEffect(() => {
     setLocalEndpointDraft(aiConfig.localEndpoint);
     setLocalModelDraft(aiConfig.localModel);
   }, [aiConfig.localEndpoint, aiConfig.localModel]);
+
+  const availableMcpAppKey = companionState.availableMcpApps.join(',');
+  useEffect(() => {
+    let cancelled = false;
+    if (!companionState.connected || !companionState.tokenPaired) {
+      setMcpTools([]);
+      setToolCatalogMessage('Pair the local companion to discover real editor tools.');
+      return () => { cancelled = true; };
+    }
+    setIsRefreshingTools(true);
+    setToolCatalogMessage('Discovering tools from configured MCP applications…');
+    companionService.listAllMcpTools()
+      .then((tools) => {
+        if (cancelled) return;
+        setMcpTools(tools);
+        setToolCatalogMessage(tools.length
+          ? 'Live catalog loaded from the paired local companion.'
+          : 'No MCP tools were discovered. Check configured CLI paths and companion logs.');
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        setMcpTools([]);
+        setToolCatalogMessage(error instanceof Error ? error.message : 'MCP tool discovery failed.');
+      })
+      .finally(() => {
+        if (!cancelled) setIsRefreshingTools(false);
+      });
+    return () => { cancelled = true; };
+  }, [companionState.connected, companionState.tokenPaired, availableMcpAppKey]);
+
+  const refreshMcpTools = async () => {
+    if (!companionState.connected || !companionState.tokenPaired) {
+      setToolCatalogMessage('Pair the local companion before refreshing the MCP catalog.');
+      return;
+    }
+    setIsRefreshingTools(true);
+    setToolCatalogMessage('Refreshing live MCP tool catalog…');
+    try {
+      const tools = await companionService.listAllMcpTools();
+      setMcpTools(tools);
+      setToolCatalogMessage(tools.length
+        ? 'Live catalog refreshed from the paired local companion.'
+        : 'No MCP tools were discovered. Check configured CLI paths and companion logs.');
+    } catch (error) {
+      setToolCatalogMessage(error instanceof Error ? error.message : 'MCP tool discovery failed.');
+    } finally {
+      setIsRefreshingTools(false);
+    }
+  };
+
+  const filteredMcpTools = mcpTools.filter((tool) => {
+    const query = toolSearch.trim().toLowerCase();
+    return !query || [tool.appId, tool.name, tool.description || ''].some((value) => value.toLowerCase().includes(query));
+  });
+  const visibleMcpTools = filteredMcpTools.slice(0, 80);
 
   const saveLocalSettings = () => {
     const endpoint = localEndpointDraft.trim().replace(/\/+$/, '');
@@ -400,56 +456,46 @@ export const AIWorkspace: React.FC<AIWorkspaceProps> = ({
         </div>
       </div>
 
-      {/* Right Registered Tools Inspector */}
-      <aside className="w-80 shrink-0 border-l border-[var(--border-subtle)] bg-[var(--bg-surface)] p-4 flex flex-col justify-between text-xs space-y-4">
-        <div className="space-y-4">
-          <div className="flex items-center justify-between border-b border-[var(--border-subtle)] pb-2 font-semibold text-[var(--text-primary)]">
-            <div className="flex items-center gap-2">
-              <Cpu size={14} className="text-[#B7A0FF]" />
-              <span>Registered Tools ({REGISTERED_AI_TOOLS.length})</span>
-            </div>
+      {/* Live MCP Tool Inspector */}
+      <aside className="w-80 shrink-0 border-l border-[var(--border-subtle)] bg-[var(--bg-surface)] p-4 flex flex-col min-h-0 text-xs">
+        <div className="flex items-center justify-between gap-3 border-b border-[var(--border-subtle)] pb-3">
+          <div>
+            <h2 className="font-semibold text-[var(--text-primary)]">Live MCP tools</h2>
+            <p className="mt-1 text-[10px] text-[var(--text-muted)]">{mcpTools.length} discovered from configured apps</p>
           </div>
-
-          <p className="text-[11px] text-[var(--text-secondary)] leading-relaxed">
-            AI models can only execute operations declared in the adapter registry. Unrestricted filesystem or terminal execution is strictly prohibited.
-          </p>
-
-          <div className="space-y-2 max-h-[380px] overflow-y-auto">
-            {REGISTERED_AI_TOOLS.map((tool) => (
-              <div 
-                key={tool.id}
-                className="p-2.5 rounded bg-[var(--bg-elevated)] border border-[var(--border-subtle)] space-y-1"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="font-semibold text-[var(--text-primary)] text-[11px]">
-                    {tool.name}
-                  </span>
-                  <span className="text-[10px] font-mono text-[var(--text-muted)]">
-                    {tool.targetAppId}
-                  </span>
-                </div>
-                <p className="text-[11px] text-[var(--text-muted)] line-clamp-2">
-                  {tool.description}
-                </p>
-                {tool.isConsequential && (
-                  <div className="text-[10px] text-amber-400 font-mono pt-0.5">
-                    Requires Confirmation
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
+          <button type="button" onClick={() => void refreshMcpTools()} disabled={isRefreshingTools || !companionState.connected || !companionState.tokenPaired} className="border border-[var(--border-subtle)] px-2 py-1.5 text-[10px] text-[var(--text-secondary)] hover:text-[var(--text-primary)] disabled:opacity-40">
+            {isRefreshingTools ? 'Refreshing…' : 'Refresh'}
+          </button>
         </div>
 
-        {/* Privacy Policy Callout */}
-        <div className="p-3 rounded bg-[var(--bg-elevated)] border border-[var(--border-subtle)] space-y-1.5 text-[11px]">
-          <div className="flex items-center gap-1.5 text-[var(--text-primary)] font-medium">
-            <ShieldCheck size={13} className="text-emerald-400" />
-            <span>Privacy Guard</span>
+        <p className="py-3 text-[10px] leading-relaxed text-[var(--text-muted)]">{toolCatalogMessage}</p>
+
+        <div className="border-b border-[var(--border-subtle)] pb-3">
+          <label className="block text-[10px] text-[var(--text-muted)]" htmlFor="mcp-tool-search">Filter by app, tool, or description</label>
+          <input id="mcp-tool-search" value={toolSearch} onChange={(event) => setToolSearch(event.target.value)} placeholder="Search live tool catalog" className="mt-1 w-full border border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-2.5 py-2 text-[11px] text-[var(--text-primary)] outline-none focus:border-[#B7A0FF]" />
+        </div>
+
+        <div className="mt-2 min-h-0 flex-1 overflow-y-auto">
+          <div className="border-b border-[var(--border-subtle)] py-2">
+            <div className="font-medium text-[var(--text-primary)]">open_application</div>
+            <p className="mt-1 text-[10px] leading-relaxed text-[var(--text-muted)]">Launches a native app only when its executable is explicitly configured in the local companion.</p>
           </div>
-          <p className="text-[10px] text-[var(--text-muted)] leading-relaxed">
-            Private project assets are never uploaded to cloud endpoints without explicit prompt authorization.
-          </p>
+          {visibleMcpTools.map((tool) => (
+            <div key={tool.appId + ':' + tool.name} className="border-b border-[var(--border-subtle)] py-2.5">
+              <div className="flex items-start justify-between gap-2">
+                <span className="break-all font-medium text-[var(--text-primary)]">{tool.name}</span>
+                <span className="shrink-0 font-mono text-[10px] text-[var(--text-muted)]">{tool.appId}</span>
+              </div>
+              {tool.description && <p className="mt-1 line-clamp-3 text-[10px] leading-relaxed text-[var(--text-muted)]">{tool.description}</p>}
+            </div>
+          ))}
+          {filteredMcpTools.length === 0 && <p className="py-5 text-[11px] text-[var(--text-muted)]">{mcpTools.length ? 'No tools match this filter.' : 'No live MCP tools are available yet.'}</p>}
+          {filteredMcpTools.length > visibleMcpTools.length && <p className="py-3 text-[10px] text-[var(--text-muted)]">Showing {visibleMcpTools.length} of {filteredMcpTools.length} matching tools. Refine the search to narrow the list.</p>}
+        </div>
+
+        <div className="mt-3 border-t border-[var(--border-subtle)] pt-3 text-[10px] leading-relaxed text-[var(--text-muted)]">
+          <div className="mb-1 flex items-center gap-1.5 font-medium text-[var(--text-primary)]"><ShieldCheck size={12} /> Privacy and execution</div>
+          The AI can propose only tools in the discovered catalog. Every proposed action still requires approval; the companion validates tool names and arguments before dispatch. Review filesystem effects before approving an operation.
         </div>
       </aside>
     </div>

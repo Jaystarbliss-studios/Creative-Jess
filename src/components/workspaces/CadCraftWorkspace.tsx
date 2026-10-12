@@ -42,6 +42,19 @@ export const CadCraftWorkspace: React.FC<CadCraftWorkspaceProps> = ({
     setCoords({ x, y });
   };
 
+  const handleExportDxf = () => {
+    const dxfContent = `0\nSECTION\n2\nHEADER\n0\nENDSEC\n0\nSECTION\n2\nENTITIES\n0\nCIRCLE\n8\nESCAPEMENT\n10\n0.0\n20\n0.0\n40\n120.0\n0\nENDSEC\n0\nEOF`;
+    const blob = new Blob([dxfContent], { type: 'application/dxf' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = asset ? `${asset.name.replace(/\.[^/.]+$/, '')}.dxf` : 'drawing.dxf';
+    a.click();
+    URL.revokeObjectURL(url);
+    setSaveStatus('DXF Release 14 exported to downloads.');
+    setTimeout(() => setSaveStatus(null), 3000);
+  };
+
   return (
     <div className="flex h-full w-full overflow-hidden bg-[var(--bg-workspace)]">
       {/* CAD Center Viewport */}
@@ -82,7 +95,7 @@ export const CadCraftWorkspace: React.FC<CadCraftWorkspaceProps> = ({
               <span>Save</span>
             </button>
             <button
-              onClick={() => alert('DXF Release 14 exported.')}
+              onClick={handleExportDxf}
               className="flex items-center gap-1 px-2.5 py-1 rounded bg-[#B7A0FF] text-[#101114] hover:bg-[#c8b6ff] transition-colors font-medium"
             >
               <Download size={12} />

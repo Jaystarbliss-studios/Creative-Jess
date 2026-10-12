@@ -66,6 +66,19 @@ export const FilmCraftWorkspace: React.FC<FilmCraftWorkspaceProps> = ({
     }, 700);
   };
 
+  const handleExportEdl = () => {
+    const edlContent = `TITLE: MASTER_SEQUENCE\nFCM: NON-DROP FRAME\n001  AX       V     C        00:00:00:00 00:01:42:00 00:00:00:00 00:01:42:00\n* FROM CLIP NAME: assembly-01.film\n`;
+    const blob = new Blob([edlContent], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = asset ? `${asset.name.replace(/\.[^/.]+$/, '')}.edl` : 'sequence.edl';
+    a.click();
+    URL.revokeObjectURL(url);
+    setSaveStatus('CMX 3600 EDL conform exported to downloads.');
+    setTimeout(() => setSaveStatus(null), 3000);
+  };
+
   return (
     <div className="flex h-full w-full overflow-hidden bg-[var(--bg-workspace)]">
       {/* Main Timeline & Preview Column */}
@@ -101,7 +114,7 @@ export const FilmCraftWorkspace: React.FC<FilmCraftWorkspaceProps> = ({
               <span>Save</span>
             </button>
             <button
-              onClick={() => alert('EDL / XML conform file exported.')}
+              onClick={handleExportEdl}
               className="flex items-center gap-1 px-2.5 py-1 rounded bg-[#B7A0FF] text-[#101114] hover:bg-[#c8b6ff] transition-colors font-medium"
             >
               <Download size={12} />

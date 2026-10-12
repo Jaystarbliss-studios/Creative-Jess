@@ -42,6 +42,7 @@ export const PhotoCraftWorkspace: React.FC<PhotoCraftWorkspaceProps> = ({
   const [zoom, setZoom] = useState<number>(100);
   const [activeTab, setActiveTab] = useState<'adjustments' | 'layers' | 'histogram' | 'companion'>('adjustments');
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
+  const [companionDispatchStatus, setCompanionDispatchStatus] = useState<string | null>(null);
 
   // Layers state
   const [layers, setLayers] = useState([
@@ -486,12 +487,21 @@ export const PhotoCraftWorkspace: React.FC<PhotoCraftWorkspaceProps> = ({
                 <div>&nbsp;&nbsp;--out rendered.png</div>
               </div>
               <button
-                onClick={() => alert("Companion command 'photocraft-cli' dispatched to localhost:9876.")}
+                onClick={() => {
+                  setCompanionDispatchStatus("Companion command 'photocraft-cli' dispatched to localhost:9876.");
+                  setTimeout(() => setCompanionDispatchStatus(null), 4000);
+                }}
                 className="w-full flex items-center justify-center gap-2 py-1.5 rounded bg-[var(--bg-elevated)] border border-[var(--border-subtle)] text-xs text-[var(--text-primary)] hover:border-[#B7A0FF] transition-colors"
               >
                 <Terminal size={12} />
                 <span>Execute via Companion</span>
               </button>
+              {companionDispatchStatus && (
+                <div className="p-2 rounded bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs flex items-center gap-1.5">
+                  <CheckCircle2 size={13} className="shrink-0" />
+                  <span>{companionDispatchStatus}</span>
+                </div>
+              )}
             </div>
           )}
         </div>

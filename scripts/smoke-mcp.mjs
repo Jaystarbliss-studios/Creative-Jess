@@ -181,6 +181,22 @@ try {
         throw new Error('DeckCraft acceptance failed: exported PPTX is missing or does not have a ZIP/PPTX signature.');
       }
       acceptanceResult = { scenario: 'deckcraft-create-add-text-inspect-export-pptx', verified: true, outputFormat: 'pptx', outputInsideTemporaryDirectory: true, outputBytes: savedBytes.length };
+    } else if (acceptance === 'designcraft') {
+      const marker = 'CreativeJessDesignAcceptance' + Date.now();
+      await callTool('new_document', { width: 612, height: 792, pages: 1, title: 'Creative Jess acceptance' });
+      await callTool('execute', { command: 'frame.create', params: { rect: [36, 36, 576, 180], content: 'text', text: marker } });
+      const inspection = await callTool('inspect_document', {});
+      if (!inspection.includes(marker)) throw new Error('DesignCraft acceptance failed: document inspection did not include the inserted text.');
+      const nativePath = path.join(temp, 'creative-jess-acceptance.designcraft');
+      await callTool('save_document', { path: nativePath });
+      const nativeBytes = await readFile(nativePath);
+      if (nativeBytes.length < 100) throw new Error('DesignCraft acceptance failed: native document was not saved.');
+      const outputPath = path.join(temp, 'creative-jess-acceptance.png');
+      await callTool('export_png', { path: outputPath, page: 0, scale: 1 });
+      const savedBytes = await readFile(outputPath);
+      const pngSignature = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+      if (savedBytes.length < 64 || !pngSignature.every((byte, index) => savedBytes[index] === byte)) throw new Error('DesignCraft acceptance failed: exported PNG signature or file size is invalid.');
+      acceptanceResult = { scenario: 'designcraft-create-text-inspect-save-export-png', verified: true, nativeBytes: nativeBytes.length, outputFormat: 'png', outputInsideTemporaryDirectory: true, outputBytes: savedBytes.length };
     } else if (acceptance === 'lightcraft') {
       const inputPath = path.join(temp, 'creative-jess-source.bmp');
       const bmp = Buffer.alloc(70);

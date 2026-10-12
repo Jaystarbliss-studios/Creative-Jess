@@ -172,6 +172,21 @@ export default function App() {
     }
   };
 
+  const handleReplaceAsset = (projectId: string, updatedAsset: ProjectAsset) => {
+    setProjects((prev) => prev.map((project) => project.id === projectId ? {
+      ...project,
+      updatedAt: new Date().toISOString(),
+      assets: project.assets.map((asset) => asset.id === updatedAsset.id ? updatedAsset : asset),
+    } : project));
+    if (activeProject.id === projectId) {
+      setActiveProject((prev) => ({
+        ...prev,
+        updatedAt: new Date().toISOString(),
+        assets: prev.assets.map((asset) => asset.id === updatedAsset.id ? updatedAsset : asset),
+      }));
+    }
+  };
+
   // Save asset from an editor into the active project
   const handleSaveEditorAsset = (assetName: string, dataUrl: string) => {
     const newAsset: ProjectAsset = {
@@ -309,6 +324,7 @@ export default function App() {
             onSelectProject={handleSelectProject}
             onCreateProject={handleCreateProject}
             onAddAsset={handleAddAsset}
+            onReplaceAsset={handleReplaceAsset}
             onOpenApp={handleOpenApp}
           />
         )}

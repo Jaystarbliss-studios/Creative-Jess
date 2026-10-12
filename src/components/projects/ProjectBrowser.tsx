@@ -22,11 +22,17 @@ interface LocalWritableFile {
   close(): Promise<void>;
 }
 interface LocalFileHandle {
+  readonly kind: 'file';
+  readonly name: string;
+  getFile(): Promise<File>;
   createWritable(): Promise<LocalWritableFile>;
 }
 interface LocalDirectoryHandle {
+  readonly kind: 'directory';
+  readonly name: string;
   getDirectoryHandle(name: string, options: { create: boolean }): Promise<LocalDirectoryHandle>;
   getFileHandle(name: string, options?: { create?: boolean }): Promise<LocalFileHandle>;
+  entries(): AsyncIterableIterator<[string, LocalFileHandle | LocalDirectoryHandle]>;
 }
 
 function safeFolderSegment(value: string): string {
@@ -40,6 +46,7 @@ interface ProjectBrowserProps {
   onSelectProject: (project: Project) => void;
   onCreateProject: (name: string, description: string) => void;
   onAddAsset: (projectId: string, asset: ProjectAsset) => void;
+  onReplaceAsset: (projectId: string, asset: ProjectAsset) => void;
   onOpenApp: (app: CraftApp, asset?: ProjectAsset) => void;
 }
 
@@ -72,6 +79,7 @@ export const ProjectBrowser: React.FC<ProjectBrowserProps> = ({
   const [importStatus, setImportStatus] = useState<{ success: boolean; message: string } | null>(null);
   const [isImporting, setIsImporting] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [isSyncingFolder, setIsSyncingFolder] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const formatFileSize = (bytes: number) => {
@@ -180,6 +188,80 @@ export const ProjectBrowser: React.FC<ProjectBrowserProps> = ({
     }
   };
 
+  const handleImportFolderChanges = async () => {
+    const picker = (window as unknown as { showDirectoryPicker?: () => Promise<LocalDirectoryHandle> }).showDirectoryPicker;
+    if (!picker) {
+      setImportStatus({ success: false, message: 'Folder import requires a current desktop version of Chrome or Edge. You can still import individual files.' });
+      return;
+    }
+    setIsSyncingFolder(true);
+    setImportStatus(null);
+    try {
+      const selectedFolder = await picker.call(window);
+      const existing = activeProject.assets;
+      const handledAssetIds = new Set<string>();
+      let updated = 0;
+      let added = 0;
+      let skipped = 0;
+      for await (const [fileName, handle] of selectedFolder.entries()) {
+        if (handle.kind !== 'file') continue;
+        const file = await handle.getFile();
+        const lowerName = fileName.toLowerCase();
+        const matched = existing.find((asset) => !handledAssetIds.has(asset.id) && asset.name.toLowerCase() === lowerName)
+          || existing.find((asset) => {
+            if (handledAssetIds.has(asset.id)) return false;
+            const dot = fileName.lastIndexOf('.');
+            const stem = dot > 0 ? fileName.slice(0, dot) : fileName;
+            const extension = dot > 0 ? fileName.slice(dot) : '';
+            return stem.toLowerCase() === (safeFolderSegment(asset.name.includes('.') ? asset.name.slice(0, asset.name.lastIndexOf('.')) : asset.name) + '-' + asset.id.slice(-8)).toLowerCase()
+              && extension.toLowerCase() === (asset.extension || '').toLowerCase();
+          });
+        try {
+          if (matched) {
+            await storeAssetFile(matched.id, file);
+            handledAssetIds.add(matched.id);
+            onReplaceAsset(activeProject.id, {
+              ...matched,
+              sizeBytes: file.size,
+              updatedAt: new Date().toISOString(),
+              metadata: { ...matched.metadata, mimeType: file.type || 'unknown', lastModified: file.lastModified, importedFromFolder: selectedFolder.name },
+              contentStoredLocally: true,
+            });
+            updated++;
+          } else {
+            const id = 'asset-' + crypto.randomUUID();
+            const extension = file.name.includes('.') ? '.' + file.name.split('.').pop()!.toLowerCase() : '';
+            const details = getAssetDetails(file);
+            await storeAssetFile(id, file);
+            onAddAsset(activeProject.id, {
+              id,
+              name: file.name,
+              type: details.type,
+              extension,
+              sizeBytes: file.size,
+              updatedAt: new Date().toISOString(),
+              compatibleAppId: details.appId,
+              metadata: { mimeType: file.type || 'unknown', lastModified: file.lastModified, importedFromFolder: selectedFolder.name },
+              contentStoredLocally: true,
+            });
+            added++;
+          }
+        } catch {
+          skipped++;
+        }
+      }
+      setImportStatus({ success: skipped === 0, message: 'Folder import finished: ' + updated + ' existing asset(s) refreshed, ' + added + ' new file(s) imported' + (skipped ? ', ' + skipped + ' file(s) could not be stored' : '') + '. This copies the selected folder into browser storage; it does not establish continuous two-way sync.' });
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        setImportStatus({ success: false, message: 'Folder selection was cancelled. Nothing was imported.' });
+      } else {
+        setImportStatus({ success: false, message: 'Could not import folder changes. ' + (error instanceof Error ? error.message : 'Unknown folder access error.') });
+      }
+    } finally {
+      setIsSyncingFolder(false);
+    }
+  };
+
   const handleDownload = async (asset: ProjectAsset) => {
     setImportStatus(null);
     try {
@@ -271,10 +353,13 @@ export const ProjectBrowser: React.FC<ProjectBrowserProps> = ({
           <div>
             <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileImport} aria-label="Choose a file to import" />
             <div className="flex flex-wrap gap-2">
-              <button onClick={() => void handleExportProjectToFolder()} disabled={isExporting || isImporting || activeProject.assets.length === 0} className="inline-flex items-center gap-2 border border-[var(--border-subtle)] px-3 py-2 text-xs text-[var(--text-primary)] hover:bg-[var(--bg-surface)] disabled:opacity-50">
+              <button onClick={() => void handleExportProjectToFolder()} disabled={isExporting || isImporting || isSyncingFolder || activeProject.assets.length === 0} className="inline-flex items-center gap-2 border border-[var(--border-subtle)] px-3 py-2 text-xs text-[var(--text-primary)] hover:bg-[var(--bg-surface)] disabled:opacity-50">
                 <FolderOpen size={13} /> {isExporting ? 'Exporting…' : 'Export to folder'}
               </button>
-              <button onClick={() => fileInputRef.current?.click()} disabled={isImporting || isExporting} className="inline-flex items-center gap-2 border border-[var(--border-subtle)] px-3 py-2 text-xs text-[var(--text-primary)] hover:bg-[var(--bg-surface)] disabled:opacity-50">
+              <button onClick={() => void handleImportFolderChanges()} disabled={isImporting || isExporting || isSyncingFolder} className="inline-flex items-center gap-2 border border-[var(--border-subtle)] px-3 py-2 text-xs text-[var(--text-primary)] hover:bg-[var(--bg-surface)] disabled:opacity-50">
+                <FolderOpen size={13} /> {isSyncingFolder ? 'Importing folder…' : 'Import folder changes'}
+              </button>
+              <button onClick={() => fileInputRef.current?.click()} disabled={isImporting || isExporting || isSyncingFolder} className="inline-flex items-center gap-2 border border-[var(--border-subtle)] px-3 py-2 text-xs text-[var(--text-primary)] hover:bg-[var(--bg-surface)] disabled:opacity-50">
                 <Upload size={13} /> {isImporting ? 'Importing…' : 'Import file'}
               </button>
             </div>

@@ -33,7 +33,7 @@ test('catalog statuses match CI build, MCP discovery, and focused acceptance evi
 });
 
 test('integrated_verified is reserved for repositories with passing end-to-end acceptance scenarios', () => {
-  const accepted = new Set(['photocraft', 'vectorcraft', 'wordcraft', 'gridcraft', 'deckcraft', 'pdfcraft']);
+  const accepted = new Set(['photocraft', 'vectorcraft', 'wordcraft', 'gridcraft', 'deckcraft', 'pdfcraft', 'soundcraft', 'cadcraft']);
   const integrated = CRAFT_APPS.filter((app) => app.status === 'integrated_verified');
   assert.deepEqual(new Set(integrated.map((app) => app.id)), accepted);
   for (const app of integrated) assert.match(app.statusNotes, /CI .*temporary directory|CI created|CI generated/);

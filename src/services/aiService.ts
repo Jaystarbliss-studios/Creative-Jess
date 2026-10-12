@@ -67,20 +67,22 @@ export function selectToolsForModel(
 
   // Give the active editor a useful focused slice, then distribute remaining slots across every app.
   const activeGroup = activeAppId ? groups.get(activeAppId) : undefined;
-  if (activeGroup) activeGroup.slice(0, Math.min(20, safeLimit)).forEach(take);
-  let round = 0;
+  const activeQuota = activeGroup ? Math.min(20, safeLimit) : 0;
+  if (activeGroup) activeGroup.slice(0, activeQuota).forEach(take);
+  const positions = new Map(appOrder.map((appId) => [appId, appId === activeAppId ? activeQuota : 0]));
   while (selected.length < safeLimit) {
     let added = false;
     for (const appId of appOrder) {
       const group = groups.get(appId) || [];
-      if (round < group.length) {
+      const position = positions.get(appId) || 0;
+      if (position < group.length) {
         const before = selected.length;
-        take(group[round]);
+        take(group[position]);
+        positions.set(appId, position + 1);
         if (selected.length > before) added = true;
       }
     }
     if (!added) break;
-    round++;
   }
   return selected;
 }

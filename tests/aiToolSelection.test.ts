@@ -35,3 +35,9 @@ test('model tool selection returns the original full catalog when it fits the li
 test('model tool selection honors a zero limit', () => {
   assert.deepEqual(selectToolsForModel(makeTools('photocraft', 4), 'photocraft', '', 0), []);
 });
+
+test('a single large app catalog can still fill the model tool budget', () => {
+  const selected = selectToolsForModel(makeTools('lightcraft', 150), 'lightcraft', 'develop photo', 100);
+  assert.equal(selected.length, 100);
+  assert.ok(selected.every((tool) => tool.appId === 'lightcraft'));
+});

@@ -27,9 +27,19 @@ function mcpFunctionName(tool: ClientMcpTool): string {
 function toGeminiSchema(input: unknown, depth = 0): Record<string, unknown> {
   if (!input || typeof input !== 'object' || Array.isArray(input) || depth > 5) return { type: Type.OBJECT, properties: {} };
   const schema = input as Record<string, unknown>;
-  const type = schema.type === 'string' ? Type.STRING : schema.type === 'integer' || schema.type === 'number' ? Type.NUMBER : schema.type === 'boolean' ? Type.BOOLEAN : schema.type === 'array' ? Type.ARRAY : Type.OBJECT;
+  const rawType = schema.type;
+  const acceptedTypes = Array.isArray(rawType) ? rawType.filter((item): item is string => typeof item === 'string' && item !== 'null') : [];
+  // Gemini function schemas do not consistently accept JSON Schema type unions. When an ID
+  // accepts both string and integer, use STRING because every such upstream tool accepts a string ID.
+  const selectedType = Array.isArray(rawType)
+    ? (acceptedTypes.includes('string') ? 'string' : acceptedTypes.includes('integer') ? 'integer' : acceptedTypes[0])
+    : rawType;
+  const type = selectedType === 'string' ? Type.STRING : selectedType === 'integer' || selectedType === 'number' ? Type.NUMBER : selectedType === 'boolean' ? Type.BOOLEAN : selectedType === 'array' ? Type.ARRAY : Type.OBJECT;
   const result: Record<string, unknown> = { type };
-  if (typeof schema.description === 'string') result.description = schema.description.slice(0, 500);
+  if (typeof schema.description === 'string') {
+    const unionNote = acceptedTypes.length > 1 ? ' Accepted input types: ' + acceptedTypes.join(' or ') + '; provide a string when either a string or integer ID is valid.' : '';
+    result.description = (schema.description + unionNote).slice(0, 500);
+  }
   if (Array.isArray(schema.enum) && schema.enum.length <= 50) result.enum = schema.enum.filter((v) => typeof v === 'string' || typeof v === 'number');
   if (schema.type === 'object' && schema.properties && typeof schema.properties === 'object' && !Array.isArray(schema.properties)) {
     const entries = Object.entries(schema.properties as Record<string, unknown>).slice(0, 30);

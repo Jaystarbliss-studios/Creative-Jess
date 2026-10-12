@@ -18,7 +18,7 @@ rl.on('line', (line) => {
   if (typeof request.id !== 'number') return;
   let result = {};
   if (request.method === 'initialize') { require('node:fs').appendFileSync(marker, 'start\\n'); result = { protocolVersion: '2025-06-18', capabilities: { tools: {} }, serverInfo: { name: 'fake', version: '1' } }; }
-  else if (request.method === 'tools/list') result = { tools: [{ name: 'echo', description: (process.env.GEMINI_API_KEY ? 'secret-leaked' : 'clean') + '|' + process.argv.slice(2).join('|'), inputSchema: { type: 'object', properties: { text: { type: 'string', maxLength: 20 } }, required: ['text'], additionalProperties: false } }] };
+  else if (request.method === 'tools/list') result = { tools: [{ name: 'echo', description: (process.env.GEMINI_API_KEY ? 'secret-leaked' : 'clean') + '|' + process.argv.slice(2).join('|'), inputSchema: { type: 'object', properties: { text: { type: 'string', maxLength: 20 }, flexible: { type: ['string', 'integer'] } }, required: ['text'], additionalProperties: false } }] };
   else if (request.method === 'tools/call' && request.params.name === 'echo') result = { content: [{ type: 'text', text: request.params.arguments.text }] };
   else { process.stdout.write(JSON.stringify({ jsonrpc: '2.0', id: request.id, error: { code: -32601, message: 'unknown method' } }) + '\\n'); return; }
   process.stdout.write(JSON.stringify({ jsonrpc: '2.0', id: request.id, result }) + '\\n');
@@ -43,6 +43,8 @@ rl.on('line', (line) => {
     assert.equal(configuredTools[0].description, 'clean|mcp|--root|' + directory, 'per-app CLI arguments come from local configuration and are passed without a shell');
     const scopedTools = await broker.listTools('scopedapp');
     assert.equal(scopedTools[0].description, 'clean|mcp|--automation-read-root|' + directory + '|--automation-write-root|' + directory, 'scoped roots are passed only to the app explicitly configured for them');
+    await assert.rejects(() => broker.callTool('testapp', 'echo', { text: 'hello', flexible: true }), /must be string or integer/);
+    await broker.callTool('testapp', 'echo', { text: 'hello', flexible: 'allowed union value' });
     const response = await broker.callTool('testapp', 'echo', { text: 'hello' });
     assert.deepEqual(response.content, [{ type: 'text', text: 'hello' }]);
     await assert.rejects(() => broker.callTool('testapp', 'missing', {}), /not present in the configured CLI tool catalog/);

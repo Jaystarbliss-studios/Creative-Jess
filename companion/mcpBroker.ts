@@ -11,13 +11,17 @@ const isObj = (v: unknown): v is Obj => v !== null && typeof v === 'object' && !
 
 function validate(value: unknown, schema: unknown, label = 'arguments'): string | null {
   if (!isObj(schema)) return null;
-  const t = schema.type;
-  const ok = typeof t !== 'string' || (t === 'object' ? isObj(value)
-    : t === 'array' ? Array.isArray(value) : t === 'string' ? typeof value === 'string'
-    : t === 'number' ? typeof value === 'number' && Number.isFinite(value)
-    : t === 'integer' ? typeof value === 'number' && Number.isInteger(value)
-    : t === 'boolean' ? typeof value === 'boolean' : t === 'null' ? value === null : true);
-  if (!ok) return label + ' must be ' + String(t) + '.';
+  const rawType = schema.type;
+  const types = typeof rawType === 'string' ? [rawType] : Array.isArray(rawType) ? rawType.filter((item): item is string => typeof item === 'string') : [];
+  const matchesType = (type: string) => type === 'object' ? isObj(value)
+    : type === 'array' ? Array.isArray(value)
+    : type === 'string' ? typeof value === 'string'
+    : type === 'number' ? typeof value === 'number' && Number.isFinite(value)
+    : type === 'integer' ? typeof value === 'number' && Number.isInteger(value)
+    : type === 'boolean' ? typeof value === 'boolean'
+    : type === 'null' ? value === null : true;
+  const ok = types.length === 0 || types.some(matchesType);
+  if (!ok) return label + ' must be ' + types.join(' or ') + '.';
   if (Array.isArray(schema.enum) && !schema.enum.some((x) => Object.is(x, value))) return label + ' is not an allowed value.';
   if (typeof value === 'string') {
     if (typeof schema.minLength === 'number' && value.length < schema.minLength) return label + ' is too short.';
@@ -28,6 +32,7 @@ function validate(value: unknown, schema: unknown, label = 'arguments'): string 
     if (typeof schema.maximum === 'number' && value > schema.maximum) return label + ' is above its maximum.';
   }
   if (Array.isArray(value)) {
+    if (typeof schema.minItems === 'number' && value.length < schema.minItems) return label + ' has too few items.';
     if (typeof schema.maxItems === 'number' && value.length > schema.maxItems) return label + ' has too many items.';
     if (schema.items) for (let i = 0; i < value.length; i++) { const e = validate(value[i], schema.items, label + '[' + i + ']'); if (e) return e; }
   }
@@ -38,8 +43,12 @@ function validate(value: unknown, schema: unknown, label = 'arguments'): string 
     for (const [key, child] of Object.entries(value)) {
       if (!(key in props) && schema.additionalProperties === false) return label + '.' + key + ' is not allowed.';
       if (key in props) { const e = validate(child, props[key], label + '.' + key); if (e) return e; }
+      else if (isObj(schema.additionalProperties)) { const e = validate(child, schema.additionalProperties, label + '.' + key); if (e) return e; }
     }
   }
+  if (Array.isArray(schema.anyOf) && !schema.anyOf.some((candidate) => validate(value, candidate, label) === null)) return label + ' does not match any allowed schema.';
+  if (Array.isArray(schema.oneOf) && schema.oneOf.filter((candidate) => validate(value, candidate, label) === null).length !== 1) return label + ' must match exactly one allowed schema.';
+  if (Array.isArray(schema.allOf)) for (const candidate of schema.allOf) { const e = validate(value, candidate, label); if (e) return e; }
   return null;
 }
 

@@ -17,6 +17,74 @@ export interface RegisteredTool {
 /** Native launching is the only static action. Editor tools are discovered from paired MCP CLIs at runtime and validated before dispatch. */
 export const REGISTERED_AI_TOOLS: RegisteredTool[] = [{ id: 'open_application', name: 'Launch native application', description: 'Propose starting a configured native app through the paired local companion. Requires explicit approval and does not edit files.', targetAppId: 'local-companion', parameters: [{ name: 'appId', type: 'string', description: 'Stable application ID from the workspace catalog.', required: true }], isConsequential: true }];
 
+
+const DISCOVERY_TOOL_NAMES = new Set([
+  'list_commands', 'command_list', 'get_state', 'get_project', 'get_comp',
+  'inspect_document', 'doc_inspect', 'inspect_drawing', 'inspect_session',
+  'project_inspect', 'sequence_inspect', 'inspect_workbook', 'inspect_slide',
+  'query_photos', 'list_tools',
+]);
+
+/** Keep model tool schemas bounded without allowing a large app catalog to crowd out every other app. */
+export function selectToolsForModel(
+  tools: McpToolDescriptor[],
+  activeAppId = '',
+  prompt = '',
+  limit = 100,
+): McpToolDescriptor[] {
+  const safeLimit = Math.max(0, Math.min(100, Math.floor(limit)));
+  if (safeLimit === 0 || tools.length === 0) return [];
+  if (tools.length <= safeLimit) return tools.slice();
+
+  const terms = [...new Set(prompt.toLowerCase().split(/[^a-z0-9]+/).filter((word) => word.length > 2))];
+  const groups = new Map<string, { tool: McpToolDescriptor; index: number; score: number }[]>();
+  tools.forEach((tool, index) => {
+    const group = groups.get(tool.appId) || [];
+    const name = tool.name.toLowerCase();
+    const description = (tool.description || '').toLowerCase();
+    const discoveryBonus = DISCOVERY_TOOL_NAMES.has(name) ? 12 : 0;
+    const relevance = terms.reduce((score, term) => score + (name.includes(term) ? 4 : 0) + (description.includes(term) ? 1 : 0), 0);
+    group.push({ tool, index, score: discoveryBonus + relevance });
+    groups.set(tool.appId, group);
+  });
+  for (const group of groups.values()) {
+    group.sort((a, b) => b.score - a.score || a.index - b.index);
+  }
+
+  const appOrder = [...groups.keys()];
+  if (activeAppId && groups.has(activeAppId)) {
+    appOrder.splice(appOrder.indexOf(activeAppId), 1);
+    appOrder.unshift(activeAppId);
+  }
+  const selected: McpToolDescriptor[] = [];
+  const selectedKeys = new Set<string>();
+  const take = (entry: { tool: McpToolDescriptor }) => {
+    const key = entry.tool.appId + ':' + entry.tool.name;
+    if (selectedKeys.has(key) || selected.length >= safeLimit) return;
+    selectedKeys.add(key);
+    selected.push(entry.tool);
+  };
+
+  // Give the active editor a useful focused slice, then distribute remaining slots across every app.
+  const activeGroup = activeAppId ? groups.get(activeAppId) : undefined;
+  if (activeGroup) activeGroup.slice(0, Math.min(20, safeLimit)).forEach(take);
+  let round = 0;
+  while (selected.length < safeLimit) {
+    let added = false;
+    for (const appId of appOrder) {
+      const group = groups.get(appId) || [];
+      if (round < group.length) {
+        const before = selected.length;
+        take(group[round]);
+        if (selected.length > before) added = true;
+      }
+    }
+    if (!added) break;
+    round++;
+  }
+  return selected;
+}
+
 function functionNameForTool(tool: { appId: string; name: string }): string {
   const identity = tool.appId + '_' + tool.name;
   let hash = 2166136261;
@@ -146,8 +214,10 @@ class AIService {
     prompt: string,
     activeProjectName: string,
     activeAppName: string,
-    mcpTools: McpToolDescriptor[] = []
+    mcpTools: McpToolDescriptor[] = [],
+    activeAppId = ''
   ): Promise<{ text: string; toolProposal?: { name: string; args: Record<string, unknown> } }> {
+    const modelTools = selectToolsForModel(mcpTools, activeAppId, prompt, 100);
     if (this.config.mode === 'local') {
       const endpoint = this.config.localEndpoint.replace(/\/+$/, '');
       try {
@@ -160,7 +230,7 @@ class AIService {
             messages: [{ role: 'user', content: 'Project: ' + activeProjectName + '. Active application: ' + activeAppName + '. You may propose one supplied tool call when useful. Never claim an action happened before explicit user approval. User request: ' + prompt }],
             tools: [
               { type: 'function', function: { name: 'open_application', description: 'Propose launching a configured native application. Does not open a file or edit content.', parameters: { type: 'object', properties: { appId: { type: 'string', enum: ['artcraft', 'photocraft', 'artcraftx', 'lightcraft', 'filmcraft', 'effectcraft', 'vectorcraft', 'cadcraft', 'wordcraft', 'soundcraft', 'pdfcraft', 'designcraft', 'deckcraft', 'gridcraft'] } }, required: ['appId'] } } },
-              ...mcpTools.slice(0, 100).map((tool) => ({ type: 'function', function: { name: functionNameForTool(tool), description: (tool.description || tool.name).slice(0, 500), parameters: tool.inputSchema || { type: 'object', properties: {} } } })),
+              ...modelTools.map((tool) => ({ type: 'function', function: { name: functionNameForTool(tool), description: (tool.description || tool.name).slice(0, 500), parameters: tool.inputSchema || { type: 'object', properties: {} } } })),
             ],
           }),
         });
@@ -175,7 +245,7 @@ class AIService {
           return { text: messageText || 'Review the proposed application launch before approving it.', toolProposal: { name: 'open_application', args: { appId: call.arguments.appId } } };
         }
         if (call && typeof call.name === 'string') {
-          const tool = mcpTools.slice(0, 100).find((item) => functionNameForTool(item) === call.name);
+          const tool = modelTools.find((item) => functionNameForTool(item) === call.name);
           if (tool && call.arguments && typeof call.arguments === 'object' && !Array.isArray(call.arguments)) {
             return { text: messageText || 'Review the proposed editor operation before approving it.', toolProposal: { name: 'mcp_tool', args: { appId: tool.appId, toolName: tool.name, arguments: call.arguments as Record<string, unknown> } } };
           }
@@ -194,7 +264,7 @@ class AIService {
       const response = await fetch('/api/ai/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: this.config.cloudModel, prompt, context: { projectName: activeProjectName, appName: activeAppName }, mcpTools: mcpTools.slice(0, 100) }),
+        body: JSON.stringify({ model: this.config.cloudModel, prompt, context: { projectName: activeProjectName, appName: activeAppName }, mcpTools: modelTools }),
       });
       if (!response.ok) throw new Error('Cloud AI endpoint returned HTTP ' + response.status);
       const data = await response.json();

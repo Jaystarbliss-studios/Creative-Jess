@@ -188,7 +188,8 @@ export const AIWorkspace: React.FC<AIWorkspaceProps> = ({
         currentInput,
         projectContext,
         activeApp ? activeApp.name : 'Workspace',
-        await companionService.listAllMcpTools()
+        await companionService.listAllMcpTools(),
+        activeApp?.id || ''
       );
 
       const assistantMsg: AIChatMessage = {

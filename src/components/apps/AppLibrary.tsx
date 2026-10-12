@@ -107,8 +107,8 @@ export const AppLibrary: React.FC<AppLibraryProps> = ({ onOpenApp, onOpenCompani
                   <button onClick={() => onOpenApp(app)} className="inline-flex items-center gap-1.5 border border-[var(--border-subtle)] px-3 py-2 text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-surface)]">Workspace preview <ArrowUpRight size={13} /></button>
                 </>}
                 <a href={app.repoUrl} target="_blank" rel="noreferrer" aria-label={'Open ' + app.name + ' source repository'} className="inline-flex items-center gap-1 text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)]">Source <ExternalLink size={12} /></a>
-                {launchResults[app.id] && <p role="status" className={launchResults[app.id].success ? 'mt-2 text-[11px] text-[var(--text-secondary)] md:col-span-3' : 'mt-2 text-[11px] text-rose-400 md:col-span-3'}>{launchResults[app.id].output}</p>}
               </div>
+              {launchResults[app.id] && <p role="status" className={launchResults[app.id].success ? 'text-[11px] leading-relaxed text-[var(--text-secondary)] md:col-span-3' : 'text-[11px] leading-relaxed text-rose-400 md:col-span-3'}>{launchResults[app.id].output}</p>}
             </article>
           );
         })}

@@ -187,11 +187,11 @@ try {
       await callTool('command_run', { id: 'file.newSearchBin', params: { name: 'Acceptance Bin ' + marker } });
       const project = await callTool('project_inspect', {});
       if (!project.includes(marker)) throw new Error('FilmCraft acceptance failed: project inspection did not include the new project or search bin.');
-      const outputPath = path.join(temp, 'creative-jess-acceptance.filmcraft');
+      const outputPath = path.join(temp, 'creative-jess-acceptance.fcproj');
       await callTool('command_run', { id: 'file.saveAs', params: { path: outputPath } });
       const savedBytes = await readFile(outputPath);
       if (savedBytes.length < 100) throw new Error('FilmCraft acceptance failed: saved project file is missing or unexpectedly small.');
-      acceptanceResult = { scenario: 'filmcraft-create-project-add-bin-inspect-save-project', verified: true, outputFormat: 'filmcraft', outputInsideTemporaryDirectory: true, outputBytes: savedBytes.length };
+      acceptanceResult = { scenario: 'filmcraft-create-project-add-bin-inspect-save-project', verified: true, outputFormat: 'fcproj', outputInsideTemporaryDirectory: true, outputBytes: savedBytes.length };
     } else if (acceptance === 'designcraft') {
       const marker = 'CreativeJessDesignAcceptance' + Date.now();
       await callTool('new_document', { width: 612, height: 792, pages: 1, title: 'Creative Jess acceptance' });

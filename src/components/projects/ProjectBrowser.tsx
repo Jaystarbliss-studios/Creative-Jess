@@ -176,7 +176,7 @@ export const ProjectBrowser: React.FC<ProjectBrowserProps> = ({
         setImportStatus({ success: false, message: 'No imported file bytes were found to export. Import real files into this project first.' });
       } else {
         try { localStorage.setItem('craft-workspace:local-export-folder:' + activeProject.id, folderName); } catch { /* File export should succeed even when browser metadata storage is unavailable. */ }
-        setImportStatus({ success: true, message: 'Exported ' + exported + ' file(s) to the selected folder under ' + folderName + (missing ? '; skipped ' + missing + ' sample or unavailable file record(s).' : '.') + ' If you selected the configured CraftProjects folder, the exported files are available to the scoped MCP tools.' });
+        setImportStatus({ success: true, message: 'Exported ' + exported + ' file(s) to the selected folder under ' + folderName + (missing ? '; skipped ' + missing + ' sample or unavailable file record(s).' : '.') + ' If you selected the configured CraftProjects\\exports folder, the exported files are available to the scoped MCP tools.' });
       }
     } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') {

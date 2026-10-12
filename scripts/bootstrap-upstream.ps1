@@ -102,7 +102,7 @@ New-Item -ItemType Directory -Force -Path $projectRoot, $exportRoot | Out-Null
 $scopedRoots = [ordered]@{}
 foreach ($repo in @('photocraft', 'vectorcraft')) {
     if ($mcpPaths.Contains($repo)) {
-        $scopedRoots[$repo] = [ordered]@{ readRoot = [System.IO.Path]::GetFullPath($projectRoot); writeRoot = [System.IO.Path]::GetFullPath($exportRoot) }
+        $scopedRoots[$repo] = [ordered]@{ readRoot = [System.IO.Path]::GetFullPath($exportRoot); writeRoot = [System.IO.Path]::GetFullPath($exportRoot) }
     }
 }
 $appJson = ConvertTo-Json -InputObject $appPaths -Compress

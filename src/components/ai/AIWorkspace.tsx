@@ -182,7 +182,7 @@ export const AIWorkspace: React.FC<AIWorkspaceProps> = ({
       const projectContext = [
         'Project: ' + activeProject.name,
         importedFiles.length ? 'Imported project files: ' + importedFiles.join(', ') : 'No imported project files are currently listed.',
-        localFolderCandidate ? 'Last exported folder name: ' + localFolderCandidate + '. This is relative to the configured CraftProjects root only if the user selected that exact root in the folder picker; confirm with the user before relying on the path.' : 'No local folder export has been recorded for this project.',
+        localFolderCandidate ? 'Last exported folder name: ' + localFolderCandidate + '. This folder name is relative to the configured MCP read/write root only if the user selected `.upstream/CraftProjects/exports` in the folder picker; confirm that before relying on the path.' : 'No local folder export has been recorded for this project.',
       ].join(' | ');
       const response = await aiService.processUserPrompt(
         currentInput,

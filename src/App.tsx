@@ -300,7 +300,6 @@ export default function App() {
             asset={activeAsset} 
             companionState={companionState}
             onOpenCompanionModal={() => setIsCompanionModalOpen(true)}
-            onLaunchApp={handleLaunchNativeApp}
           />
         );
     }
@@ -350,6 +349,7 @@ export default function App() {
           <AppLibrary
             onOpenApp={handleOpenApp}
             onOpenCompanionModal={() => setIsCompanionModalOpen(true)}
+            onLaunchApp={handleLaunchNativeApp}
           />
         )}
 

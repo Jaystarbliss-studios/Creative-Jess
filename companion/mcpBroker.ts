@@ -105,6 +105,7 @@ class McpSession {
     this.tools = Array.isArray(response.tools) ? response.tools.filter((x): x is McpTool => isObj(x) && typeof x.name === 'string' && /^[a-zA-Z0-9_.:-]{1,128}$/.test(x.name)) : [];
   }
 
+  get registeredToolCount() { return this.tools.length; }
   async listTools() { await this.ready; return this.tools.map((x) => ({ ...x })); }
   async callTool(name: string, args: unknown) {
     await this.ready;
@@ -126,6 +127,7 @@ export class McpBroker {
   private readonly sessions = new Map<string, McpSession>();
   constructor(private readonly paths: Record<string, string>, private readonly scopedRoots: McpScopedRoots = {}, private readonly extraArgs: McpExtraArgs = {}) {}
   configuredApps() { return Object.keys(this.paths); }
+  registeredToolsCount() { return [...this.sessions.values()].reduce((total, session) => total + session.registeredToolCount, 0); }
   private async session(appId: string) {
     if (!Object.prototype.hasOwnProperty.call(this.paths, appId)) throw new Error('No MCP CLI is configured for this application.');
     let s = this.sessions.get(appId); if (s) return s;

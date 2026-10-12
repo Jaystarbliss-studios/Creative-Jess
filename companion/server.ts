@@ -153,7 +153,7 @@ app.get('/health', (req, res) => {
     version: '0.1.0',
     os: os.platform(),
     allowlistedCommands: ['open-app', 'mcp-list-tools', 'mcp-call-tool'],
-    registeredToolsCount: 0,
+    registeredToolsCount: mcpBroker.registeredToolsCount(),
     availableApps: Object.keys(appPaths),
     availableMcpApps: mcpBroker.configuredApps(),
   });

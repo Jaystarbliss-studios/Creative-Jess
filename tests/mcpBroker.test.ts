@@ -31,6 +31,7 @@ rl.on('line', (line) => {
   const broker = new McpBroker({ testapp: executable, scopedapp: executable, configuredapp: executable }, { scopedapp: { readRoot: directory, writeRoot: directory } }, { configuredapp: ['--root', directory] });
   try {
     const tools = await broker.listTools('testapp');
+    assert.equal(broker.registeredToolsCount(), 1, 'health metrics should reflect tools discovered from a live MCP session');
     const toolsAgain = await broker.listTools('testapp');
     assert.equal(toolsAgain.length, 1, 'tool discovery should reuse the same live CLI session');
     const starts = await readFile(path.join(directory, 'starts.txt'), 'utf8');

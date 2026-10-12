@@ -224,7 +224,7 @@ try {
       bmp.writeUInt32LE(2835, 42);
       bmp.set([0, 0, 255, 0, 255, 0, 0, 0, 255, 255, 255, 255, 0, 0, 0, 0], 54);
       await writeFile(inputPath, bmp);
-      await callTool('import', { paths: [inputPath], mode: 'add' });
+      await callTool('import', { paths: [inputPath], mode: 'copy', organize: 'flat' });
       const library = await callTool('query_photos', { limit: 20 });
       if (!library.toLowerCase().includes('creative-jess-source.bmp')) throw new Error('LightCraft acceptance failed: imported BMP was not found in the photo catalog.');
       await callTool('set_develop', { values: { 'light.exposure': 0.7 } });

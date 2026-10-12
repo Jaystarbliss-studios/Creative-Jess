@@ -36,8 +36,38 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # Eight native apps already have passing focused acceptance evidence.
-          # This follow-up run covers only the four remaining acceptance workflows.
+          - repository: photocraft
+            cli_package: photocraft-cli
+            desktop_package: photocraft
+            supports_roots: true
+          - repository: vectorcraft
+            cli_package: vectorcraft-cli
+            desktop_package: vectorcraft
+            supports_roots: true
+          - repository: wordcraft
+            cli_package: wordcraft-cli
+            desktop_package: wordcraft
+            supports_roots: false
+          - repository: gridcraft
+            cli_package: gridcraft-cli
+            desktop_package: gridcraft
+            supports_roots: false
+          - repository: deckcraft
+            cli_package: deckcraft-cli
+            desktop_package: deckcraft
+            supports_roots: false
+          - repository: pdfcraft
+            cli_package: pdfcraft-cli
+            desktop_package: pdfcraft
+            supports_roots: false
+          - repository: soundcraft
+            cli_package: soundcraft-cli
+            desktop_package: soundcraft
+            supports_roots: false
+          - repository: cadcraft
+            cli_package: cadcraft-cli
+            desktop_package: cadcraft
+            supports_roots: false
           - repository: designcraft
             cli_package: designcraft-cli
             desktop_package: designcraft
@@ -75,7 +105,7 @@ jobs:
           rustc --version
           cargo --version
           cargo metadata --manifest-path ".upstream/${{ matrix.repository }}/Cargo.toml" --no-deps --format-version 1 | Out-File -Encoding utf8 ".upstream/${{ matrix.repository }}/cargo-metadata.json"
-      - name: Build MCP CLI for acceptance (desktop builds were verified in the full pilot run)
+      - name: Build desktop app and MCP CLI
         shell: pwsh
         run: |
           $logFile = ".upstream/${{ matrix.repository }}/verification.log"
@@ -83,7 +113,7 @@ jobs:
           rustc --version 2>&1 | Tee-Object -FilePath $logFile -Append
           cargo --version 2>&1 | Tee-Object -FilePath $logFile -Append
           "=== cargo build desktop + CLI ===" | Tee-Object -FilePath $logFile -Append
-          cargo build --manifest-path ".upstream/${{ matrix.repository }}/Cargo.toml" --release -p "${{ matrix.cli_package }}" 2>&1 | Tee-Object -FilePath $logFile -Append
+          cargo build --manifest-path ".upstream/${{ matrix.repository }}/Cargo.toml" --release -p "${{ matrix.desktop_package }}" -p "${{ matrix.cli_package }}" 2>&1 | Tee-Object -FilePath $logFile -Append
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Smoke-test actual MCP server
         shell: pwsh

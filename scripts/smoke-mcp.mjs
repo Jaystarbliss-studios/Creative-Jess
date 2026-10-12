@@ -229,7 +229,8 @@ try {
       await callTool('execute_command', { command: 'comp.new', params: { name: 'Acceptance Comp', width: 320, height: 240, frameRate: 24, duration: 2 } });
       await callTool('execute_command', { command: 'layer.newText', params: { text: marker, size: 36, fill: '#ffffff' } });
       const project = await callTool('get_project', {});
-      if (!project.includes('Acceptance Comp') || !project.includes(marker)) throw new Error('EffectCraft acceptance failed: project inspection did not include the composition and text layer.');
+      const composition = await callTool('get_comp', { comp: 'Acceptance Comp' });
+      if (!project.includes('Acceptance Comp') || !composition.includes(marker)) throw new Error('EffectCraft acceptance failed: project/composition inspection did not include the composition and text layer.');
       const outputPath = path.join(temp, 'creative-jess-acceptance.ecproj');
       await callTool('save_project', { path: outputPath });
       const savedText = await readFile(outputPath, 'utf8');

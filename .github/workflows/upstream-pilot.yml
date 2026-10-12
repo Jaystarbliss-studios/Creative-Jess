@@ -36,33 +36,11 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - repository: photocraft
-            cli_package: photocraft-cli
-            desktop_package: photocraft
-            supports_roots: true
-          - repository: vectorcraft
-            cli_package: vectorcraft-cli
-            desktop_package: vectorcraft
-            supports_roots: true
+          # The other six native apps already passed build/MCP discovery and focused acceptance in run 38203273231.
+          # Keep this follow-up matrix focused on the six remaining acceptance workflows.
           - repository: designcraft
             cli_package: designcraft-cli
             desktop_package: designcraft
-            supports_roots: false
-          - repository: pdfcraft
-            cli_package: pdfcraft-cli
-            desktop_package: pdfcraft
-            supports_roots: false
-          - repository: wordcraft
-            cli_package: wordcraft-cli
-            desktop_package: wordcraft
-            supports_roots: false
-          - repository: deckcraft
-            cli_package: deckcraft-cli
-            desktop_package: deckcraft
-            supports_roots: false
-          - repository: gridcraft
-            cli_package: gridcraft-cli
-            desktop_package: gridcraft
             supports_roots: false
           - repository: soundcraft
             cli_package: soundcraft-cli

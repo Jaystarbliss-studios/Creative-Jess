@@ -103,7 +103,7 @@ export const AIWorkspace: React.FC<AIWorkspaceProps> = ({
     setIsRefreshingTools(true);
     setToolCatalogMessage('Refreshing live MCP tool catalog…');
     try {
-      const tools = await companionService.listAllMcpTools();
+      const tools = await companionService.listAllMcpTools(true);
       setMcpTools(tools);
       setToolCatalogMessage(tools.length
         ? 'Live catalog refreshed from the paired local companion.'

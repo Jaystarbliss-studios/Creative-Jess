@@ -132,9 +132,9 @@ class LocalCompanionService {
     this.notify();
   }
 
-  public async listMcpTools(appId: string): Promise<McpToolDescriptor[]> {
+  public async listMcpTools(appId: string, forceRefresh = false): Promise<McpToolDescriptor[]> {
     const cached = this.mcpToolCache.get(appId);
-    if (cached && Date.now() - cached.loadedAt < 5 * 60 * 1000) return cached.tools.map((tool) => ({ ...tool }));
+    if (!forceRefresh && cached && Date.now() - cached.loadedAt < 5 * 60 * 1000) return cached.tools.map((tool) => ({ ...tool }));
     if (!this.state.connected || !this.state.tokenPaired || !this.pairingToken) throw new Error('Pair the local companion before discovering MCP tools.');
     if (!this.state.availableMcpApps.includes(appId)) throw new Error('No MCP CLI is configured for ' + appId + '.');
     const response = await fetch('http://127.0.0.1:' + this.state.port + '/mcp/' + encodeURIComponent(appId) + '/tools', { headers: { 'Authorization': 'Bearer ' + this.pairingToken, 'X-Craft-Origin': 'craft-workspace-web' } });
@@ -145,7 +145,7 @@ class LocalCompanionService {
     return tools.map((tool) => ({ ...tool }));
   }
 
-  public async listAllMcpTools(): Promise<McpToolDescriptor[]> {
+  public async listAllMcpTools(forceRefresh = false): Promise<McpToolDescriptor[]> {
     if (!this.state.connected || !this.state.tokenPaired) return [];
     const appIds = [...this.state.availableMcpApps];
     const results: McpToolDescriptor[] = [];
@@ -153,7 +153,7 @@ class LocalCompanionService {
     const worker = async () => {
       while (cursor < appIds.length) {
         const appId = appIds[cursor++];
-        try { results.push(...await this.listMcpTools(appId)); } catch { /* Unavailable CLIs are omitted; no tools are fabricated. */ }
+        try { results.push(...await this.listMcpTools(appId, forceRefresh)); } catch { /* Unavailable CLIs are omitted; no tools are fabricated. */ }
       }
     };
     await Promise.all(Array.from({ length: Math.min(3, appIds.length) }, () => worker()));

@@ -135,6 +135,7 @@ jobs:
           if ('${{ matrix.repository }}' -eq 'effectcraft') { $smokeArgs += @('--acceptance', 'effectcraft') }
           if ('${{ matrix.repository }}' -eq 'lightcraft') { $smokeArgs += @('--acceptance', 'lightcraft') }
           if ('${{ matrix.repository }}' -eq 'designcraft') { $smokeArgs += @('--acceptance', 'designcraft') }
+          if ('${{ matrix.repository }}' -eq 'filmcraft') { $smokeArgs += @('--acceptance', 'filmcraft') }
           node scripts/smoke-mcp.mjs @smokeArgs 2>&1 | Tee-Object -FilePath $logFile -Append
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Upload build metadata and logs

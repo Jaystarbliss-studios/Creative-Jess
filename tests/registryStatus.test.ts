@@ -14,12 +14,12 @@ test('catalog statuses match CI build, MCP discovery, and focused acceptance evi
     lightcraft: 'smoke_test_passed',
     filmcraft: 'smoke_test_passed',
     effectcraft: 'smoke_test_passed',
-    soundcraft: 'build_passed',
+    soundcraft: 'integrated_verified',
     wordcraft: 'integrated_verified',
     designcraft: 'smoke_test_passed',
     deckcraft: 'integrated_verified',
     pdfcraft: 'integrated_verified',
-    cadcraft: 'build_passed',
+    cadcraft: 'integrated_verified',
     gridcraft: 'integrated_verified',
   };
   for (const [id, status] of Object.entries(evidence)) {

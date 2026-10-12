@@ -14,6 +14,10 @@ on:
       - 'scripts/start-companion.ps1'
       - '.github/workflows/powershell-check.yml'
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   parse:
     runs-on: windows-latest

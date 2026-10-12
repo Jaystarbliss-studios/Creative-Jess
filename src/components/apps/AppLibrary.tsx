@@ -6,6 +6,7 @@ import { ExternalLink, Search, ArrowUpRight } from 'lucide-react';
 interface AppLibraryProps {
   onOpenApp: (app: CraftApp, asset?: ProjectAsset) => void;
   onOpenCompanionModal: () => void;
+  onLaunchApp: (app: CraftApp) => Promise<{ success: boolean; output: string }>;
 }
 
 const statusLabel = (app: CraftApp) => {
@@ -22,7 +23,22 @@ const statusLabel = (app: CraftApp) => {
   }
 };
 
-export const AppLibrary: React.FC<AppLibraryProps> = ({ onOpenApp }) => {
+export const AppLibrary: React.FC<AppLibraryProps> = ({ onOpenApp, onOpenCompanionModal, onLaunchApp }) => {
+  const [launchingAppId, setLaunchingAppId] = useState<string | null>(null);
+  const [launchResults, setLaunchResults] = useState<Record<string, { success: boolean; output: string }>>({});
+  const launchApp = async (app: CraftApp) => {
+    if (launchingAppId) return;
+    setLaunchingAppId(app.id);
+    setLaunchResults((prev) => { const next = { ...prev }; delete next[app.id]; return next; });
+    try {
+      const result = await onLaunchApp(app);
+      setLaunchResults((prev) => ({ ...prev, [app.id]: result }));
+    } catch (error) {
+      setLaunchResults((prev) => ({ ...prev, [app.id]: { success: false, output: error instanceof Error ? error.message : 'The launch request failed.' } }));
+    } finally {
+      setLaunchingAppId(null);
+    }
+  };
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
 
@@ -38,9 +54,12 @@ export const AppLibrary: React.FC<AppLibraryProps> = ({ onOpenApp }) => {
       <header className="border-b border-[var(--border-subtle)] pb-6">
         <div className="text-[11px] font-mono uppercase tracking-wider text-[var(--text-muted)]">Ecosystem directory</div>
         <h1 className="mt-2 text-2xl font-semibold tracking-tight text-[var(--text-primary)]">Applications and supporting repositories</h1>
-        <p className="mt-2 max-w-3xl text-sm leading-relaxed text-[var(--text-secondary)]">
-          Browse the 21 repository records. A catalog entry or workspace preview is not proof that an upstream application has been built or integrated.
-        </p>
+        <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <p className="max-w-3xl text-sm leading-relaxed text-[var(--text-secondary)]">
+            Browse the 21 repository records. A catalog entry or workspace preview is not proof that an upstream application has been built or integrated.
+          </p>
+          <button onClick={onOpenCompanionModal} className="shrink-0 self-start border border-[var(--border-subtle)] px-3 py-2 text-xs text-[var(--text-primary)] hover:bg-[var(--bg-surface)]">Configure local companion</button>
+        </div>
       </header>
 
       <div className="mt-5 flex flex-col gap-4">
@@ -83,8 +102,12 @@ export const AppLibrary: React.FC<AppLibraryProps> = ({ onOpenApp }) => {
                 <div className="mt-1 text-[11px] text-[var(--text-muted)]">{app.version} · {app.license}</div>
               </div>
               <div className="flex items-center gap-3 pl-5 md:pl-0">
-                {!infrastructure && <button onClick={() => onOpenApp(app)} className="inline-flex items-center gap-1.5 border border-[var(--border-subtle)] px-3 py-2 text-xs text-[var(--text-primary)] hover:bg-[var(--bg-surface)]">Open workspace preview <ArrowUpRight size={13} /></button>}
+                {!infrastructure && <>
+                  <button onClick={() => void launchApp(app)} disabled={launchingAppId !== null} className="inline-flex items-center gap-1.5 border border-[var(--border-subtle)] px-3 py-2 text-xs text-[var(--text-primary)] hover:bg-[var(--bg-surface)] disabled:opacity-50">{launchingAppId === app.id ? 'Launching…' : 'Launch desktop app'}</button>
+                  <button onClick={() => onOpenApp(app)} className="inline-flex items-center gap-1.5 border border-[var(--border-subtle)] px-3 py-2 text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-surface)]">Workspace preview <ArrowUpRight size={13} /></button>
+                </>}
                 <a href={app.repoUrl} target="_blank" rel="noreferrer" aria-label={'Open ' + app.name + ' source repository'} className="inline-flex items-center gap-1 text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)]">Source <ExternalLink size={12} /></a>
+                {launchResults[app.id] && <p role="status" className={launchResults[app.id].success ? 'mt-2 text-[11px] text-[var(--text-secondary)] md:col-span-3' : 'mt-2 text-[11px] text-rose-400 md:col-span-3'}>{launchResults[app.id].output}</p>}
               </div>
             </article>
           );

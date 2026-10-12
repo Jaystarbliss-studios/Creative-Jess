@@ -128,6 +128,22 @@ export default function App() {
     setCurrentTab('editor');
   };
 
+  const handleLaunchNativeApp = async (app: CraftApp): Promise<{ success: boolean; output: string }> => {
+    if (!companionState.connected || !companionState.tokenPaired) {
+      setIsCompanionModalOpen(true);
+      return { success: false, output: 'Pair the local companion before launching desktop applications.' };
+    }
+    if (!companionState.availableApps.includes(app.id)) {
+      setIsCompanionModalOpen(true);
+      return { success: false, output: 'No executable is configured for ' + app.name + '. Add its absolute path to CRAFT_APP_PATHS_JSON and restart the companion.' };
+    }
+    try {
+      return await companionService.executeAllowlistedCommand('open-app', [app.id]);
+    } catch (error) {
+      return { success: false, output: error instanceof Error ? error.message : 'The desktop application could not be launched.' };
+    }
+  };
+
   // Switch project
   const handleSelectProject = (project: Project) => {
     setActiveProject(project);
@@ -284,6 +300,7 @@ export default function App() {
             asset={activeAsset} 
             companionState={companionState}
             onOpenCompanionModal={() => setIsCompanionModalOpen(true)}
+            onLaunchApp={handleLaunchNativeApp}
           />
         );
     }

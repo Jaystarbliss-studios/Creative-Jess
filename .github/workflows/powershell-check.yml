@@ -11,6 +11,7 @@ on:
       - work/real-integration-foundation
     paths:
       - 'scripts/bootstrap-upstream.ps1'
+      - 'scripts/start-companion.ps1'
       - '.github/workflows/powershell-check.yml'
 
 jobs:

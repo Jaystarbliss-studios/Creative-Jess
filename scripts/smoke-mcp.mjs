@@ -184,7 +184,7 @@ try {
     } else if (acceptance === 'filmcraft') {
       const marker = 'CreativeJessFilmAcceptance' + Date.now();
       await callTool('command_run', { id: 'file.newProject', params: { name: marker } });
-      await callTool('command_run', { id: 'file.newSearchBin', params: { name: 'Acceptance Bin ' + marker } });
+      await callTool('command_run', { id: 'file.newBin', params: { name: 'Acceptance Bin ' + marker } });
       const project = await callTool('project_inspect', {});
       if (!project.includes(marker)) throw new Error('FilmCraft acceptance failed: project inspection did not include the new project or search bin.');
       const outputPath = path.join(temp, 'creative-jess-acceptance.fcproj');

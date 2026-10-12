@@ -1,4 +1,4 @@
-import { AIMode, AIProviderConfig, AIChatMessage } from '../types';
+import { AIMode, AIProviderConfig, AIChatMessage, McpToolDescriptor } from '../types';
 
 export interface RegisteredTool {
   id: string;
@@ -14,80 +14,151 @@ export interface RegisteredTool {
   isConsequential: boolean;
 }
 
-export const REGISTERED_AI_TOOLS: RegisteredTool[] = [
-  {
-    id: 'resize_project_assets',
-    name: 'Resize & Normalize Project Images',
-    description: 'Resizes raster images to specific display dimensions using PhotoCraft image processing pipeline without overwriting source files.',
-    targetAppId: 'photocraft',
-    isConsequential: true,
-    parameters: [
-      { name: 'targetWidth', type: 'number', description: 'Target width in pixels (e.g. 1920)', required: true },
-      { name: 'targetHeight', type: 'number', description: 'Target height in pixels (e.g. 1080)', required: true },
-      { name: 'preserveAspect', type: 'boolean', description: 'Maintain aspect ratio with letterboxing or crop', required: false },
-      { name: 'suffix', type: 'string', description: 'Output filename suffix (default: _web)', required: false },
-    ],
-  },
-  {
-    id: 'generate_vector_geometry',
-    name: 'Generate Vector Curves (VectorCraft)',
-    description: 'Generates precision SVG vector path mathematical coordinates for VectorCraft canvas.',
-    targetAppId: 'vectorcraft',
-    isConsequential: false,
-    parameters: [
-      { name: 'shapeType', type: 'string', description: 'Geometry type: monogram, polygon, spiral, or golden_ratio', required: true },
-      { name: 'strokeColor', type: 'string', description: 'Hex stroke color code', required: true },
-      { name: 'strokeWidth', type: 'number', description: 'Stroke width in points', required: false },
-    ],
-  },
-  {
-    id: 'analyze_color_harmony',
-    name: 'Analyze Palette & Contrast (DesignCraft)',
-    description: 'Computes WCAG AA/AAA luminance contrast ratios and color harmonies across active project assets.',
-    targetAppId: 'designcraft',
-    isConsequential: false,
-    parameters: [
-      { name: 'baseHex', type: 'string', description: 'Primary brand accent color hex', required: true },
-      { name: 'harmonyMode', type: 'string', description: 'Harmonic rule: analog, complementary, triadic, neutral', required: true },
-    ],
-  },
-  {
-    id: 'create_timeline_markers',
-    name: 'Create SMPTE Timeline Markers (FilmCraft)',
-    description: 'Generates automated timecode cuts and markers for video clip sync via FilmCraft MCP bridge.',
-    targetAppId: 'filmcraft',
-    isConsequential: true,
-    parameters: [
-      { name: 'intervalSeconds', type: 'number', description: 'Cadence interval for beat or chapter markers', required: true },
-      { name: 'markerTag', type: 'string', description: 'Label category for markers', required: true },
-    ],
-  },
-  {
-    id: 'compute_sheet_summary',
-    name: 'Calculate Grid Formulas (GridCraft)',
-    description: 'Appends summary statistical row calculations (=SUM, =AVERAGE, =MAX) in GridCraft active spreadsheet.',
-    targetAppId: 'gridcraft',
-    isConsequential: true,
-    parameters: [
-      { name: 'columnTarget', type: 'string', description: 'Column letter (e.g. E or F)', required: true },
-      { name: 'formulaType', type: 'string', description: 'Formula operation to append', required: true },
-    ],
-  },
-];
+/** Native launching is the only static action. Editor tools are discovered from paired MCP CLIs at runtime and validated before dispatch. */
+export const REGISTERED_AI_TOOLS: RegisteredTool[] = [{ id: 'open_application', name: 'Launch native application', description: 'Propose starting a configured native app through the paired local companion. Requires explicit approval and does not edit files.', targetAppId: 'local-companion', parameters: [{ name: 'appId', type: 'string', description: 'Stable application ID from the workspace catalog.', required: true }], isConsequential: true }];
 
+
+const DISCOVERY_TOOL_NAMES = new Set([
+  'list_commands', 'command_list', 'get_state', 'get_project', 'get_comp',
+  'inspect_document', 'doc_inspect', 'inspect_drawing', 'inspect_session',
+  'project_inspect', 'sequence_inspect', 'inspect_workbook', 'inspect_slide',
+  'query_photos', 'list_tools',
+]);
+
+/** Keep model tool schemas bounded without allowing a large app catalog to crowd out every other app. */
+export function selectToolsForModel(
+  tools: McpToolDescriptor[],
+  activeAppId = '',
+  prompt = '',
+  limit = 100,
+): McpToolDescriptor[] {
+  const safeLimit = Math.max(0, Math.min(100, Math.floor(limit)));
+  if (safeLimit === 0 || tools.length === 0) return [];
+  if (tools.length <= safeLimit) return tools.slice();
+
+  const terms = [...new Set(prompt.toLowerCase().split(/[^a-z0-9]+/).filter((word) => word.length > 2))];
+  const groups = new Map<string, { tool: McpToolDescriptor; index: number; score: number }[]>();
+  tools.forEach((tool, index) => {
+    const group = groups.get(tool.appId) || [];
+    const name = tool.name.toLowerCase();
+    const description = (tool.description || '').toLowerCase();
+    const discoveryBonus = DISCOVERY_TOOL_NAMES.has(name) ? 12 : 0;
+    const relevance = terms.reduce((score, term) => score + (name.includes(term) ? 4 : 0) + (description.includes(term) ? 1 : 0), 0);
+    group.push({ tool, index, score: discoveryBonus + relevance });
+    groups.set(tool.appId, group);
+  });
+  for (const group of groups.values()) {
+    group.sort((a, b) => b.score - a.score || a.index - b.index);
+  }
+
+  const appOrder = [...groups.keys()];
+  if (activeAppId && groups.has(activeAppId)) {
+    appOrder.splice(appOrder.indexOf(activeAppId), 1);
+    appOrder.unshift(activeAppId);
+  }
+  const selected: McpToolDescriptor[] = [];
+  const selectedKeys = new Set<string>();
+  const take = (entry: { tool: McpToolDescriptor }) => {
+    const key = entry.tool.appId + ':' + entry.tool.name;
+    if (selectedKeys.has(key) || selected.length >= safeLimit) return;
+    selectedKeys.add(key);
+    selected.push(entry.tool);
+  };
+
+  // Give the active editor a useful focused slice, then distribute remaining slots across every app.
+  const activeGroup = activeAppId ? groups.get(activeAppId) : undefined;
+  const activeQuota = activeGroup ? Math.min(20, safeLimit) : 0;
+  if (activeGroup) activeGroup.slice(0, activeQuota).forEach(take);
+  const positions = new Map(appOrder.map((appId) => [appId, appId === activeAppId ? activeQuota : 0]));
+  while (selected.length < safeLimit) {
+    let added = false;
+    for (const appId of appOrder) {
+      const group = groups.get(appId) || [];
+      const position = positions.get(appId) || 0;
+      if (position < group.length) {
+        const before = selected.length;
+        take(group[position]);
+        positions.set(appId, position + 1);
+        if (selected.length > before) added = true;
+      }
+    }
+    if (!added) break;
+  }
+  return selected;
+}
+
+function functionNameForTool(tool: { appId: string; name: string }): string {
+  const identity = tool.appId + '_' + tool.name;
+  let hash = 2166136261;
+  for (let i = 0; i < identity.length; i++) {
+    hash ^= identity.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  const suffix = (hash >>> 0).toString(16).padStart(8, '0');
+  const prefix = ('mcp_' + identity).replace(/[^a-zA-Z0-9_]/g, '_').slice(0, 50);
+  return prefix + '_' + suffix;
+}
+
+function geminiSchema(input: unknown, depth = 0): Record<string, unknown> {
+  if (!input || typeof input !== 'object' || Array.isArray(input) || depth > 5) return { type: 'OBJECT', properties: {} };
+  const schema = input as Record<string, unknown>;
+  const rawType = schema.type;
+  const type = rawType === 'string' ? 'STRING' : rawType === 'integer' || rawType === 'number' ? 'NUMBER' : rawType === 'boolean' ? 'BOOLEAN' : rawType === 'array' ? 'ARRAY' : 'OBJECT';
+  const result: Record<string, unknown> = { type };
+  if (typeof schema.description === 'string') result.description = schema.description.slice(0, 500);
+  if (Array.isArray(schema.enum) && schema.enum.length <= 50) result.enum = schema.enum.filter((v) => typeof v === 'string' || typeof v === 'number');
+  if (schema.type === 'object' && schema.properties && typeof schema.properties === 'object' && !Array.isArray(schema.properties)) {
+    const entries = Object.entries(schema.properties as Record<string, unknown>).slice(0, 30);
+    result.properties = Object.fromEntries(entries.map(([key, value]) => [key, geminiSchema(value, depth + 1)]));
+    if (Array.isArray(schema.required)) result.required = schema.required.filter((key): key is string => typeof key === 'string' && entries.some(([name]) => name === key));
+  }
+  if (schema.type === 'array' && schema.items) result.items = geminiSchema(schema.items, depth + 1);
+  return result;
+}
 class AIService {
   private config: AIProviderConfig = {
     mode: 'cloud',
-    cloudModel: 'gemini-3.8-flash',
+    cloudModel: 'gemini-2.5-flash',
     localEndpoint: 'http://127.0.0.1:11434',
     localModel: 'llama3.2:latest',
     telemetryEnabled: false,
     confirmConsequentialTools: true,
-    activeCloudConnected: true,
+    activeCloudConnected: false,
     activeLocalConnected: false,
   };
 
   private listeners: ((config: AIProviderConfig) => void)[] = [];
+
+  constructor() {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = window.localStorage.getItem('craft-workspace:ai-preferences');
+        const preferences = saved ? JSON.parse(saved) : null;
+        if (preferences && typeof preferences === 'object') {
+          if (preferences.mode === 'cloud' || preferences.mode === 'local') this.config.mode = preferences.mode;
+          if (typeof preferences.localEndpoint === 'string' && preferences.localEndpoint.trim()) this.config.localEndpoint = preferences.localEndpoint;
+          if (typeof preferences.localModel === 'string' && preferences.localModel.trim()) this.config.localModel = preferences.localModel;
+          if (typeof preferences.confirmConsequentialTools === 'boolean') this.config.confirmConsequentialTools = preferences.confirmConsequentialTools;
+        }
+      } catch {
+        // Invalid saved preferences are ignored; safe defaults remain active.
+      }
+    }
+  }
+
+  private persistPreferences() {
+    if (typeof window === 'undefined') return;
+    try {
+      window.localStorage.setItem('craft-workspace:ai-preferences', JSON.stringify({
+        mode: this.config.mode,
+        localEndpoint: this.config.localEndpoint,
+        localModel: this.config.localModel,
+        confirmConsequentialTools: this.config.confirmConsequentialTools,
+      }));
+    } catch {
+      // Keep current-session settings when browser storage is unavailable.
+    }
+  }
 
   public subscribe(callback: (config: AIProviderConfig) => void) {
     this.listeners.push(callback);
@@ -103,16 +174,25 @@ class AIService {
 
   public setMode(mode: AIMode) {
     this.config.mode = mode;
+    this.persistPreferences();
     this.listeners.forEach(cb => cb({ ...this.config }));
   }
 
   public setLocalEndpoint(url: string) {
-    this.config.localEndpoint = url;
+    this.config.localEndpoint = url.trim().replace(/\/+$/, '');
+    this.persistPreferences();
+    this.listeners.forEach(cb => cb({ ...this.config }));
+  }
+
+  public setLocalModel(model: string) {
+    this.config.localModel = model.trim() || 'llama3.2:latest';
+    this.persistPreferences();
     this.listeners.forEach(cb => cb({ ...this.config }));
   }
 
   public setConfirmConsequential(confirm: boolean) {
     this.config.confirmConsequentialTools = confirm;
+    this.persistPreferences();
     this.listeners.forEach(cb => cb({ ...this.config }));
   }
 
@@ -133,62 +213,81 @@ class AIService {
   }
 
   public async processUserPrompt(
-    prompt: string, 
+    prompt: string,
     activeProjectName: string,
-    activeAppName: string
-  ): Promise<{ text: string; proposedTool?: RegisteredTool; toolParams?: Record<string, unknown> }> {
-    const lower = prompt.toLowerCase();
-
-    // Context-aware tool recognition
-    if (lower.includes('resize') || lower.includes('1080') || lower.includes('dimension') || lower.includes('presentation')) {
-      const tool = REGISTERED_AI_TOOLS.find(t => t.id === 'resize_project_assets')!;
-      return {
-        text: `I have analyzed the current project assets in "${activeProjectName}". To prepare images for presentation delivery, I propose invoking PhotoCraft's non-destructive image transform pipeline with high-fidelity Lanczos resampling. Source files will be preserved, and new normalized copies will be generated.`,
-        proposedTool: tool,
-        toolParams: { targetWidth: 1920, targetHeight: 1080, preserveAspect: true, suffix: '_presentation' },
-      };
+    activeAppName: string,
+    mcpTools: McpToolDescriptor[] = [],
+    activeAppId = ''
+  ): Promise<{ text: string; toolProposal?: { name: string; args: Record<string, unknown> } }> {
+    const modelTools = selectToolsForModel(mcpTools, activeAppId, prompt, 100);
+    if (this.config.mode === 'local') {
+      const endpoint = this.config.localEndpoint.replace(/\/+$/, '');
+      try {
+        const response = await fetch(endpoint + '/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model: this.config.localModel,
+            stream: false,
+            messages: [{ role: 'user', content: 'Project: ' + activeProjectName + '. Active application: ' + activeAppName + '. You may propose one supplied tool call when useful. Never claim an action happened before explicit user approval. User request: ' + prompt }],
+            tools: [
+              { type: 'function', function: { name: 'open_application', description: 'Propose launching a configured native application. Does not open a file or edit content.', parameters: { type: 'object', properties: { appId: { type: 'string', enum: ['artcraft', 'photocraft', 'artcraftx', 'lightcraft', 'filmcraft', 'effectcraft', 'vectorcraft', 'cadcraft', 'wordcraft', 'soundcraft', 'pdfcraft', 'designcraft', 'deckcraft', 'gridcraft'] } }, required: ['appId'] } } },
+              ...modelTools.map((tool) => ({ type: 'function', function: { name: functionNameForTool(tool), description: (tool.description || tool.name).slice(0, 500), parameters: tool.inputSchema || { type: 'object', properties: {} } } })),
+            ],
+          }),
+        });
+        if (!response.ok) throw new Error('Local model returned HTTP ' + response.status);
+        const data = await response.json();
+        const messageText = typeof data?.message?.content === 'string' ? data.message.content.trim() : '';
+        const call = Array.isArray(data?.message?.tool_calls) ? data.message.tool_calls[0]?.function : null;
+        if (!messageText && !call) throw new Error('Local model returned neither message text nor a tool proposal.');
+        this.config.activeLocalConnected = true;
+        this.listeners.forEach(cb => cb({ ...this.config }));
+        if (call && typeof call.name === 'string' && call.name === 'open_application' && typeof call.arguments?.appId === 'string') {
+          return { text: messageText || 'Review the proposed application launch before approving it.', toolProposal: { name: 'open_application', args: { appId: call.arguments.appId } } };
+        }
+        if (call && typeof call.name === 'string') {
+          const tool = modelTools.find((item) => functionNameForTool(item) === call.name);
+          if (tool && call.arguments && typeof call.arguments === 'object' && !Array.isArray(call.arguments)) {
+            return { text: messageText || 'Review the proposed editor operation before approving it.', toolProposal: { name: 'mcp_tool', args: { appId: tool.appId, toolName: tool.name, arguments: call.arguments as Record<string, unknown> } } };
+          }
+        }
+        return { text: messageText };
+      } catch (error) {
+        this.config.activeLocalConnected = false;
+        this.listeners.forEach(cb => cb({ ...this.config }));
+        const detail = error instanceof Error ? error.message : 'Unknown connection error';
+        return { text: 'Local AI is unavailable at ' + endpoint + '. No application action was run. Check that Ollama is running, the model is installed, and browser access is allowed. Details: ' + detail };
+      }
     }
 
-    if (lower.includes('vector') || lower.includes('logo') || lower.includes('shape') || lower.includes('curve') || lower.includes('svg')) {
-      const tool = REGISTERED_AI_TOOLS.find(t => t.id === 'generate_vector_geometry')!;
-      return {
-        text: `To construct vector geometry in VectorCraft, I've computed a geometric SVG coordinate schema following the Swiss grid layout rules of the project.`,
-        proposedTool: tool,
-        toolParams: { shapeType: 'monogram', strokeColor: '#B7A0FF', strokeWidth: 2 },
-      };
+    // Cloud credentials remain server-side; the Express endpoint handles provider requests.
+    try {
+      const response = await fetch('/api/ai/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: this.config.cloudModel, prompt, context: { projectName: activeProjectName, appName: activeAppName }, mcpTools: modelTools }),
+      });
+      if (!response.ok) throw new Error('Cloud AI endpoint returned HTTP ' + response.status);
+      const data = await response.json();
+      if (typeof data?.text !== 'string' || !data.text.trim()) throw new Error('Cloud AI endpoint returned no message text.');
+      this.config.activeCloudConnected = true;
+      this.listeners.forEach(cb => cb({ ...this.config }));
+      const proposal = data?.toolProposal;
+      if (proposal?.name === 'open_application' && typeof proposal?.args?.appId === 'string') {
+        return { text: data.text, toolProposal: { name: 'open_application', args: { appId: proposal.args.appId } } };
+      }
+      if (proposal?.name === 'mcp_tool' && typeof proposal?.args?.appId === 'string' && typeof proposal?.args?.toolName === 'string' && proposal?.args?.arguments && typeof proposal.args.arguments === 'object') {
+        const tool = mcpTools.find((item) => item.appId === proposal.args.appId && item.name === proposal.args.toolName);
+        if (tool) return { text: data.text, toolProposal: { name: 'mcp_tool', args: { appId: tool.appId, toolName: tool.name, arguments: proposal.args.arguments as Record<string, unknown> } } };
+      }
+      return { text: data.text };
+    } catch (error) {
+      this.config.activeCloudConnected = false;
+      this.listeners.forEach(cb => cb({ ...this.config }));
+      const detail = error instanceof Error ? error.message : 'Unknown connection error';
+      return { text: 'Cloud AI is not connected to a verified server-side provider in this build. No application action was run. Configure /api/ai/chat with a server-managed provider key. Details: ' + detail };
     }
-
-    if (lower.includes('palette') || lower.includes('contrast') || lower.includes('color') || lower.includes('wcag')) {
-      const tool = REGISTERED_AI_TOOLS.find(t => t.id === 'analyze_color_harmony')!;
-      return {
-        text: `Inspecting color palette compliance against WCAG AA requirements (minimum 4.5:1 text contrast). Evaluating palette harmony for design tokens.`,
-        proposedTool: tool,
-        toolParams: { baseHex: '#B7A0FF', harmonyMode: 'neutral_contrast' },
-      };
-    }
-
-    if (lower.includes('marker') || lower.includes('timeline') || lower.includes('cut') || lower.includes('video') || lower.includes('film')) {
-      const tool = REGISTERED_AI_TOOLS.find(t => t.id === 'create_timeline_markers')!;
-      return {
-        text: `Preparing SMPTE sequence markers for FilmCraft timeline sync. This command interfaces with the FilmCraft MCP bridge at 127.0.0.1:9876 to index scene transition intervals.`,
-        proposedTool: tool,
-        toolParams: { intervalSeconds: 30, markerTag: 'Scene Transition' },
-      };
-    }
-
-    if (lower.includes('sum') || lower.includes('formula') || lower.includes('total') || lower.includes('calc') || lower.includes('grid')) {
-      const tool = REGISTERED_AI_TOOLS.find(t => t.id === 'compute_sheet_summary')!;
-      return {
-        text: `Analyzing active spreadsheet columns in GridCraft. Preparing summary formula row with reactive recalculation graph.`,
-        proposedTool: tool,
-        toolParams: { columnTarget: 'E', formulaType: '=SUM(E2:E120)' },
-      };
-    }
-
-    // Standard analytical response grounded in Craft ecosystem
-    return {
-      text: `Within Craft Workspace, the active application is ${activeAppName} on project "${activeProjectName}". You can invoke real file manipulations, vector math, color grading curves, or inspect repository status via the Command Palette (Ctrl+K). For native execution on Windows, verify your Craft Local Companion pairing.`,
-    };
   }
 }
 

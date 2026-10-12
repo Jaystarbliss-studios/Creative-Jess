@@ -76,26 +76,26 @@ export const WorkspaceHome: React.FC<WorkspaceHomeProps> = ({
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
           <div className="space-y-2 max-w-2xl">
             <div className="text-xs font-mono text-[var(--text-muted)] tracking-wider uppercase">
-              Unified Operating Environment
+              Creative workspace · integration preview
             </div>
             <h1 className="text-2xl md:text-3xl font-semibold tracking-tight text-[var(--text-primary)]">
               Craft Workspace
             </h1>
             <p className="text-sm text-[var(--text-secondary)] leading-relaxed">
-              Cohesive studio environment unifying 21 creative applications and shared infrastructure across raster, vector, video, audio, CAD, publishing, and structured data.
+              A single workspace for the Storytold Craft ecosystem. Upstream builds and application integrations are still being audited.
             </p>
           </div>
 
           {/* Quick System Connection Indicator */}
           <div className="flex items-center gap-4 text-xs font-mono text-[var(--text-muted)] bg-[var(--bg-surface)] p-3 rounded border border-[var(--border-subtle)] shrink-0">
             <div className="flex items-center gap-2">
-              <Laptop size={14} className={companionState.connected ? 'text-emerald-400' : 'text-amber-400'} />
-              <span>Companion: {companionState.connected ? '127.0.0.1:9876' : 'Offline'}</span>
+              <Laptop size={14} className={companionState.connected && companionState.tokenPaired ? 'text-emerald-400' : 'text-amber-400'} />
+              <span>Companion: {companionState.connected && companionState.tokenPaired ? 'Paired' : companionState.connected ? 'Reachable, not paired' : 'Offline'}</span>
             </div>
             <span className="text-[var(--border-subtle)]">|</span>
             <div className="flex items-center gap-2">
               <Cpu size={14} className="text-[#B7A0FF]" />
-              <span>AI: {aiConfig.mode === 'cloud' ? 'Gemini 3.8' : 'Local'}</span>
+              <span>AI: {aiConfig.mode === 'cloud' ? (aiConfig.activeCloudConnected ? 'Cloud connected' : 'Cloud unverified') : (aiConfig.activeLocalConnected ? 'Local connected' : 'Local unverified')}</span>
             </div>
           </div>
         </div>
@@ -111,6 +111,7 @@ export const WorkspaceHome: React.FC<WorkspaceHomeProps> = ({
             <p className="text-xs text-[var(--text-muted)]">
               {activeProject.description}
             </p>
+            <p className="mt-1 text-[10px] text-[var(--text-muted)]">Project and asset entries are illustrative sample metadata unless you created or imported them in this session.</p>
           </div>
           <button
             onClick={() => onNavigateTab('projects')}
@@ -121,173 +122,78 @@ export const WorkspaceHome: React.FC<WorkspaceHomeProps> = ({
           </button>
         </div>
 
-        {/* Project Asset Strip */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+        {/* Project assets — compact list, not a grid of cards */}
+        <div className="divide-y divide-[var(--border-subtle)] border-y border-[var(--border-subtle)]">
           {activeProject.assets.map((asset) => {
             const IconComponent = getAssetIcon(asset.type);
-            const targetApp = CRAFT_APPS.find(a => a.id === asset.compatibleAppId);
+            const targetApp = CRAFT_APPS.find((item) => item.id === asset.compatibleAppId);
             return (
-              <div 
-                key={asset.id}
-                className="group p-3.5 rounded bg-[var(--bg-surface)] border border-[var(--border-subtle)] hover:border-[var(--border-hover)] transition-all flex flex-col justify-between"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <div className="w-8 h-8 rounded bg-[var(--bg-elevated)] flex items-center justify-center shrink-0 text-[#B7A0FF]">
-                      <IconComponent size={15} />
-                    </div>
-                    <div className="min-w-0">
-                      <div className="text-xs font-medium text-[var(--text-primary)] truncate font-mono">
-                        {asset.name}
-                      </div>
-                      <div className="text-[11px] text-[var(--text-muted)] truncate">
-                        {asset.dimensions || formatFileSize(asset.sizeBytes)}
-                      </div>
-                    </div>
+              <div key={asset.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 py-3 sm:grid-cols-[minmax(0,1fr)_140px_auto]">
+                <div className="flex min-w-0 items-center gap-3">
+                  <IconComponent size={16} className="shrink-0 text-[var(--text-muted)]" />
+                  <div className="min-w-0">
+                    <div className="truncate font-mono text-xs text-[var(--text-primary)]">{asset.name}</div>
+                    <div className="mt-1 text-[10px] text-[var(--text-muted)]">{asset.extension} · {asset.dimensions || formatFileSize(asset.sizeBytes)}</div>
                   </div>
-                  <span className="text-[10px] font-mono text-[var(--text-muted)] px-1.5 py-0.5 rounded bg-[var(--bg-elevated)]">
-                    {asset.extension}
-                  </span>
                 </div>
-
-                <div className="mt-4 pt-3 border-t border-[var(--border-subtle)]/60 flex items-center justify-between text-xs">
-                  <span className="text-[11px] text-[var(--text-muted)] truncate">
-                    Target: {targetApp ? targetApp.name : asset.compatibleAppId}
-                  </span>
-                  <button
-                    onClick={() => {
-                      if (targetApp) onOpenApp(targetApp, asset);
-                    }}
-                    className="flex items-center gap-1 text-[#B7A0FF] hover:text-[#c8b6ff] font-medium text-xs transition-colors"
-                  >
-                    <span>Open</span>
-                    <ArrowRight size={12} />
-                  </button>
-                </div>
+                <div className="hidden truncate text-xs text-[var(--text-muted)] sm:block">{targetApp ? targetApp.name : asset.compatibleAppId}</div>
+                <button onClick={() => { if (targetApp) onOpenApp(targetApp, asset); }} className="inline-flex items-center gap-1 text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)]">
+                  Preview <ArrowRight size={12} />
+                </button>
               </div>
             );
           })}
+          {activeProject.assets.length === 0 && <p className="py-6 text-xs text-[var(--text-muted)]">No assets in this project yet. Import a file or create one in a supported application.</p>}
         </div>
       </section>
 
-      {/* 3. Creative Discipline Application Launcher */}
-      <section className="space-y-5">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[var(--border-subtle)] pb-3">
+      {/* 3. Creative application directory */}
+      <section className="space-y-4">
+        <div className="flex flex-col gap-3 border-b border-[var(--border-subtle)] pb-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h2 className="text-base font-semibold text-[var(--text-primary)]">
-              Integrated Creative Applications
-            </h2>
-            <p className="text-xs text-[var(--text-muted)]">
-              Dedicated workspaces for each creative discipline, connected via shared projects and companion bridges.
-            </p>
+            <h2 className="text-base font-semibold text-[var(--text-primary)]">Creative application previews</h2>
+            <p className="mt-1 text-xs text-[var(--text-muted)]">Preview shells only. Upstream applications have not yet been built or connected.</p>
           </div>
-
-          {/* Category Filter Tabs */}
-          <div className="flex items-center gap-1 p-1 bg-[var(--bg-surface)] rounded border border-[var(--border-subtle)] overflow-x-auto">
-            <button
-              onClick={() => setSelectedCategory('all')}
-              className={`px-2.5 py-1 text-xs rounded transition-colors whitespace-nowrap ${
-                selectedCategory === 'all' 
-                  ? 'bg-[var(--bg-elevated)] text-[var(--text-primary)] font-medium' 
-                  : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-              }`}
-            >
-              All Tools ({CRAFT_APPS.filter(a => a.category !== 'developer_infra').length})
+          <div className="flex gap-2 overflow-x-auto">
+            <button onClick={() => setSelectedCategory('all')} className={selectedCategory === 'all' ? 'shrink-0 border-b-2 border-[var(--accent)] px-2 py-2 text-xs text-[var(--text-primary)]' : 'shrink-0 border-b-2 border-transparent px-2 py-2 text-xs text-[var(--text-muted)]'}>
+              All tools
             </button>
-            {APP_CATEGORIES.filter(c => c.id !== 'developer_infra').map((cat) => (
-              <button
-                key={cat.id}
-                onClick={() => setSelectedCategory(cat.id)}
-                className={`px-2.5 py-1 text-xs rounded transition-colors whitespace-nowrap ${
-                  selectedCategory === cat.id 
-                    ? 'bg-[var(--bg-elevated)] text-[var(--text-primary)] font-medium' 
-                    : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-                }`}
-              >
-                {cat.label}
+            {APP_CATEGORIES.filter((category) => ['visual', 'video_audio', 'design_publishing', 'technical_data'].includes(category.id)).map((category) => (
+              <button key={category.id} onClick={() => setSelectedCategory(category.id)} className={selectedCategory === category.id ? 'shrink-0 border-b-2 border-[var(--accent)] px-2 py-2 text-xs text-[var(--text-primary)]' : 'shrink-0 border-b-2 border-transparent px-2 py-2 text-xs text-[var(--text-muted)]'}>
+                {category.label}
               </button>
             ))}
           </div>
         </div>
-
-        {/* Applications List Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-          {filteredApps.map((app) => (
-            <div
-              key={app.id}
-              className="p-4 rounded bg-[var(--bg-surface)] border border-[var(--border-subtle)] hover:border-[var(--border-hover)] transition-all flex flex-col justify-between"
-            >
-              <div className="space-y-2.5">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <h3 className="text-sm font-semibold text-[var(--text-primary)]">
-                      {app.name}
-                    </h3>
-                    <div className="text-[11px] font-mono text-[var(--text-muted)]">
-                      v{app.version} · {app.cratesCount} Crates
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    {app.isPilot && (
-                      <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[#B7A0FF]/15 text-[#B7A0FF] border border-[#B7A0FF]/30">
-                        Pilot Editor
-                      </span>
-                    )}
-                    {app.hasMcp && (
-                      <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-                        MCP
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                <p className="text-xs text-[var(--text-secondary)] line-clamp-2 leading-relaxed">
-                  {app.tagline}
-                </p>
-
-                <div className="flex flex-wrap gap-1 pt-1">
-                  {app.supportedFormats.slice(0, 4).map((fmt) => (
-                    <span 
-                      key={fmt}
-                      className="text-[10px] font-mono text-[var(--text-muted)] bg-[var(--bg-elevated)] px-1.5 py-0.5 rounded"
-                    >
-                      {fmt}
-                    </span>
-                  ))}
-                  {app.supportedFormats.length > 4 && (
-                    <span className="text-[10px] font-mono text-[var(--text-muted)] px-1">
-                      +{app.supportedFormats.length - 4}
-                    </span>
-                  )}
+        <div className="divide-y divide-[var(--border-subtle)] border-y border-[var(--border-subtle)]">
+          {filteredApps.filter((item) => ['visual', 'video_audio', 'design_publishing', 'technical_data'].includes(item.category)).map((app) => (
+            <div key={app.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 py-3 sm:grid-cols-[minmax(0,1fr)_140px_auto]">
+              <div className="flex min-w-0 items-center gap-3">
+                <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: app.color }} aria-hidden="true" />
+                <div className="min-w-0">
+                  <div className="truncate text-sm font-medium text-[var(--text-primary)]">{app.name}</div>
+                  <div className="mt-1 truncate text-xs text-[var(--text-muted)]">{app.tagline}</div>
                 </div>
               </div>
-
-              <div className="mt-5 pt-3 border-t border-[var(--border-subtle)] flex items-center justify-between">
-                <span className="text-[11px] text-[var(--text-muted)] truncate">
-                  {app.hasWasm ? 'In-Browser Canvas' : 'Companion Bridge'}
-                </span>
-                <button
-                  onClick={() => onOpenApp(app)}
-                  className="flex items-center gap-1.5 px-3 py-1 rounded bg-[var(--bg-elevated)] hover:bg-[#B7A0FF] text-[var(--text-primary)] hover:text-[#101114] text-xs font-medium transition-colors"
-                >
-                  <Play size={11} />
-                  <span>Open</span>
-                </button>
-              </div>
+              <span className="hidden text-xs text-amber-400 sm:block">Not inspected</span>
+              <button onClick={() => onOpenApp(app)} className="inline-flex items-center gap-1.5 border border-[var(--border-subtle)] px-3 py-2 text-xs text-[var(--text-primary)] hover:bg-[var(--bg-surface)]">
+                Open preview <ArrowRight size={12} />
+              </button>
             </div>
           ))}
         </div>
       </section>
 
+      
       {/* 4. Infrastructure & Architecture Status Strip */}
       <section className="border-t border-[var(--border-subtle)] pt-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs text-[var(--text-muted)]">
           <div className="flex items-center gap-3">
-            <span>21 Repositories Inspected</span>
+            <span>{CRAFT_APPS.length} repository records</span>
             <span aria-hidden="true">·</span>
-            <span>Edition 2024 (Rust 1.95) & TypeScript</span>
+            <span>{CRAFT_APPS.filter((item) => item.status === 'inspected').length} source inspections recorded</span>
             <span aria-hidden="true">·</span>
-            <span>MIT OR Apache-2.0</span>
+            <span>{CRAFT_APPS.filter((item) => item.status === 'integrated_verified').length} integrations verified</span>
           </div>
           <button
             onClick={() => onNavigateTab('audit')}

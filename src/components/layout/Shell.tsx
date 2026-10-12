@@ -141,7 +141,7 @@ export const Shell: React.FC<ShellProps> = ({
               <div className="flex items-center justify-between">
                 <span>AI Target</span>
                 <span className="font-mono text-[10px] text-[var(--text-secondary)]">
-                  {aiConfig.mode === 'cloud' ? 'Gemini 3.8' : 'Local Host'}
+                  {aiConfig.mode === 'cloud' ? (aiConfig.activeCloudConnected ? 'Cloud connected' : 'Cloud unverified') : (aiConfig.activeLocalConnected ? 'Local connected' : 'Local unverified')}
                 </span>
               </div>
             </div>
@@ -172,7 +172,7 @@ export const Shell: React.FC<ShellProps> = ({
             </span>
             {activeApp && (
               <span className="text-[10px] text-[var(--text-muted)] font-mono hidden sm:inline">
-                v{activeApp.version}
+                {activeApp.version === 'Unknown' ? 'version unverified' : `v${activeApp.version}`}
               </span>
             )}
           </div>
@@ -199,7 +199,7 @@ export const Shell: React.FC<ShellProps> = ({
             >
               <Cpu size={13} className={aiConfig.mode === 'cloud' ? 'text-[#B7A0FF]' : 'text-emerald-400'} />
               <span className="hidden lg:inline text-[var(--text-secondary)]">
-                {aiConfig.mode === 'cloud' ? 'Cloud: Gemini 3.8' : 'Local: Ollama/Loopback'}
+                {aiConfig.mode === 'cloud' ? 'Cloud AI (provider unverified)' : 'Local AI (Ollama-compatible)'}
               </span>
             </button>
 
@@ -207,7 +207,7 @@ export const Shell: React.FC<ShellProps> = ({
             <button
               onClick={onOpenCompanionModal}
               className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded border text-xs font-medium transition-colors ${
-                companionState.connected
+                companionState.connected && companionState.tokenPaired
                   ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400'
                   : 'border-[var(--border-subtle)] bg-[var(--bg-elevated)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
               }`}
@@ -215,12 +215,13 @@ export const Shell: React.FC<ShellProps> = ({
             >
               <Laptop size={13} />
               <span className="hidden md:inline font-mono text-[11px]">
-                {companionState.connected ? 'Companion Paired' : 'Companion Bridge'}
+                {companionState.connected && companionState.tokenPaired ? 'Companion Paired' : companionState.connected ? 'Companion Available' : 'Companion Bridge'}
               </span>
             </button>
           </div>
         </header>
 
+        <div className="flex h-7 shrink-0 items-center border-b border-[var(--border-subtle)] px-4 text-[10px] text-[var(--text-muted)]">Workspace prototype · upstream application builds and integrations are not yet verified</div>
         {/* Viewport Content */}
         <main className="flex-1 overflow-auto bg-[var(--bg-workspace)]">
           {children}

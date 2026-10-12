@@ -1,269 +1,119 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { CraftApp, ProjectAsset } from '../../types';
 import { CRAFT_APPS, APP_CATEGORIES } from '../../data/registry';
-import { 
-  Play, 
-  ExternalLink, 
-  Terminal, 
-  ShieldCheck, 
-  Search, 
-  Layers, 
-  X,
-  Radio,
-  FileCode,
-  Info
-} from 'lucide-react';
+import { ExternalLink, Search, ArrowUpRight } from 'lucide-react';
 
 interface AppLibraryProps {
   onOpenApp: (app: CraftApp, asset?: ProjectAsset) => void;
   onOpenCompanionModal: () => void;
+  onLaunchApp: (app: CraftApp) => Promise<{ success: boolean; output: string }>;
 }
 
-export const AppLibrary: React.FC<AppLibraryProps> = ({
-  onOpenApp,
-  onOpenCompanionModal,
-}) => {
+const statusLabel = (app: CraftApp) => {
+  switch (app.status) {
+    case 'integrated_verified': return 'Integrated and verified';
+    case 'smoke_test_passed': return 'Smoke test passed';
+    case 'build_passed': return 'Build passed';
+    case 'build_attempted': return 'Build attempted';
+    case 'integration_in_progress': return 'Integration in progress';
+    case 'blocked': return 'Blocked';
+    case 'unsupported_in_environment': return 'Unsupported in current environment';
+    case 'inspected': return 'Source inspected';
+    default: return 'Not inspected';
+  }
+};
+
+export const AppLibrary: React.FC<AppLibraryProps> = ({ onOpenApp, onOpenCompanionModal, onLaunchApp }) => {
+  const [launchingAppId, setLaunchingAppId] = useState<string | null>(null);
+  const [launchResults, setLaunchResults] = useState<Record<string, { success: boolean; output: string }>>({});
+  const launchApp = async (app: CraftApp) => {
+    if (launchingAppId) return;
+    setLaunchingAppId(app.id);
+    setLaunchResults((prev) => { const next = { ...prev }; delete next[app.id]; return next; });
+    try {
+      const result = await onLaunchApp(app);
+      setLaunchResults((prev) => ({ ...prev, [app.id]: result }));
+    } catch (error) {
+      setLaunchResults((prev) => ({ ...prev, [app.id]: { success: false, output: error instanceof Error ? error.message : 'The launch request failed.' } }));
+    } finally {
+      setLaunchingAppId(null);
+    }
+  };
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const [inspectApp, setInspectApp] = useState<CraftApp | null>(null);
 
-  const filteredApps = CRAFT_APPS.filter((app) => {
-    const matchesSearch = app.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      app.tagline.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      app.crates.some(c => c.toLowerCase().includes(searchQuery.toLowerCase()));
-    const matchesCategory = selectedCategory === 'all' || app.category === selectedCategory;
-    return matchesSearch && matchesCategory;
-  });
+  const filteredApps = useMemo(() => CRAFT_APPS.filter((app) => {
+    const query = searchQuery.trim().toLowerCase();
+    const matchesSearch = !query || app.name.toLowerCase().includes(query) ||
+      app.tagline.toLowerCase().includes(query) || app.repoName.toLowerCase().includes(query);
+    return matchesSearch && (selectedCategory === 'all' || app.category === selectedCategory);
+  }), [searchQuery, selectedCategory]);
 
   return (
-    <div className="max-w-7xl mx-auto px-6 py-8 space-y-8">
-      {/* Header */}
-      <div className="space-y-1 border-b border-[var(--border-subtle)] pb-6">
-        <div className="text-xs font-mono text-[#B7A0FF] tracking-wider uppercase">
-          Ecosystem Directory
+    <div className="mx-auto max-w-7xl px-6 py-8">
+      <header className="border-b border-[var(--border-subtle)] pb-6">
+        <div className="text-[11px] font-mono uppercase tracking-wider text-[var(--text-muted)]">Ecosystem directory</div>
+        <h1 className="mt-2 text-2xl font-semibold tracking-tight text-[var(--text-primary)]">Applications and supporting repositories</h1>
+        <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <p className="max-w-3xl text-sm leading-relaxed text-[var(--text-secondary)]">
+            Browse the 21 repository records. A catalog entry or workspace preview is not proof that an upstream application has been built or integrated.
+          </p>
+          <button onClick={onOpenCompanionModal} className="shrink-0 self-start border border-[var(--border-subtle)] px-3 py-2 text-xs text-[var(--text-primary)] hover:bg-[var(--bg-surface)]">Configure local companion</button>
         </div>
-        <h1 className="text-2xl font-bold tracking-tight text-[var(--text-primary)]">
-          Application & Service Library (21 Repositories)
-        </h1>
-        <p className="text-sm text-[var(--text-secondary)]">
-          Every tool across the Storytold ecosystem, organized by creative discipline and runtime capabilities.
-        </p>
-      </div>
+      </header>
 
-      {/* Filter and Search Bar */}
-      <div className="flex flex-col sm:flex-row gap-3 justify-between items-center">
-        <div className="relative w-full sm:w-80">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search by application or discipline..."
-            className="w-full bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded pl-9 pr-3 py-1.5 text-xs text-[var(--text-primary)] outline-none focus:border-[#B7A0FF]"
-          />
+      <div className="mt-5 flex flex-col gap-4">
+        <div className="relative max-w-xl">
+          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
+          <input type="search" value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)}
+            placeholder="Search applications and repositories" aria-label="Search applications and repositories"
+            className="w-full border border-[var(--border-subtle)] bg-[var(--bg-surface)] py-2 pl-9 pr-3 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--accent)]" />
         </div>
-
-        {/* Categories Bar */}
-        <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto p-1 bg-[var(--bg-surface)] rounded border border-[var(--border-subtle)]">
-          <button
-            onClick={() => setSelectedCategory('all')}
-            className={`px-3 py-1 text-xs rounded transition-colors whitespace-nowrap ${
-              selectedCategory === 'all'
-                ? 'bg-[var(--bg-elevated)] text-[var(--text-primary)] font-medium'
-                : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-            }`}
-          >
-            All Disciplines ({CRAFT_APPS.length})
+        <div className="flex gap-2 overflow-x-auto border-b border-[var(--border-subtle)] pb-3">
+          <button onClick={() => setSelectedCategory('all')} className={selectedCategory === 'all' ? 'shrink-0 border-b-2 border-[var(--accent)] px-2 py-2 text-xs text-[var(--text-primary)]' : 'shrink-0 border-b-2 border-transparent px-2 py-2 text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)]'}>
+            All repositories ({CRAFT_APPS.length})
           </button>
-          {APP_CATEGORIES.map((cat) => (
-            <button
-              key={cat.id}
-              onClick={() => setSelectedCategory(cat.id)}
-              className={`px-3 py-1 text-xs rounded transition-colors whitespace-nowrap ${
-                selectedCategory === cat.id
-                  ? 'bg-[var(--bg-elevated)] text-[var(--text-primary)] font-medium'
-                  : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-              }`}
-            >
-              {cat.label} ({cat.count})
+          {APP_CATEGORIES.map((category) => (
+            <button key={category.id} onClick={() => setSelectedCategory(category.id)}
+              className={selectedCategory === category.id ? 'shrink-0 border-b-2 border-[var(--accent)] px-2 py-2 text-xs text-[var(--text-primary)]' : 'shrink-0 border-b-2 border-transparent px-2 py-2 text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)]'}>
+              {category.label} ({category.count})
             </button>
           ))}
         </div>
       </div>
 
-      {/* Grid of Applications */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filteredApps.map((app) => (
-          <div
-            key={app.id}
-            className="p-5 rounded bg-[var(--bg-surface)] border border-[var(--border-subtle)] hover:border-[var(--border-hover)] transition-all flex flex-col justify-between"
-          >
-            <div className="space-y-3">
-              <div className="flex items-start justify-between">
-                <div>
-                  <h3 className="text-base font-semibold text-[var(--text-primary)]">
-                    {app.name}
-                  </h3>
-                  <div className="text-[11px] font-mono text-[var(--text-muted)]">
-                    v{app.version} · {app.edition}
-                  </div>
+      <div className="mt-3 border-b border-[var(--border-subtle)]">
+        {filteredApps.map((app) => {
+          const infrastructure = app.category === 'platform_services' || app.category === 'developer_infra';
+          return (
+            <article key={app.id} className="grid grid-cols-1 gap-3 border-t border-[var(--border-subtle)] py-4 md:grid-cols-[minmax(0,1fr)_190px_auto] md:items-center">
+              <div className="min-w-0">
+                <div className="flex items-baseline gap-3">
+                  <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: app.color }} aria-hidden="true" />
+                  <h2 className="truncate text-sm font-semibold text-[var(--text-primary)]">{app.name}</h2>
                 </div>
-
-                <div className="flex items-center gap-1">
-                  {app.isPilot && (
-                    <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[#B7A0FF]/20 text-[#B7A0FF]">
-                      Pilot
-                    </span>
-                  )}
-                  {app.hasMcp && (
-                    <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400">
-                      MCP
-                    </span>
-                  )}
-                </div>
+                <p className="mt-1 pl-5 text-xs leading-relaxed text-[var(--text-secondary)]">{app.tagline}</p>
+                <a href={app.repoUrl} target="_blank" rel="noreferrer" className="ml-5 mt-2 inline-flex items-center gap-1 text-[11px] text-[var(--text-muted)] hover:text-[var(--text-primary)]">
+                  storytold/{app.repoName} <ExternalLink size={11} />
+                </a>
               </div>
-
-              <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
-                {app.tagline}
-              </p>
-
-              {/* Supported formats */}
-              {app.supportedFormats.length > 0 && (
-                <div className="flex flex-wrap gap-1 pt-1">
-                  {app.supportedFormats.map((fmt) => (
-                    <span
-                      key={fmt}
-                      className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[var(--bg-elevated)] text-[var(--text-muted)]"
-                    >
-                      {fmt}
-                    </span>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className="mt-6 pt-3 border-t border-[var(--border-subtle)] flex items-center justify-between">
-              <button
-                onClick={() => setInspectApp(app)}
-                className="text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors flex items-center gap-1"
-              >
-                <Info size={13} />
-                <span>Details ({app.cratesCount} Crates)</span>
-              </button>
-
-              <button
-                onClick={() => onOpenApp(app)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-[#B7A0FF] text-[#101114] text-xs font-semibold hover:bg-[#c8b6ff] transition-colors"
-              >
-                <Play size={11} />
-                <span>Open Studio</span>
-              </button>
-            </div>
-          </div>
-        ))}
+              <div className="pl-5 text-xs md:pl-0">
+                <div className="text-[var(--text-secondary)]">{statusLabel(app)}</div>
+                <div className="mt-1 text-[11px] text-[var(--text-muted)]">{app.version} · {app.license}</div>
+              </div>
+              <div className="flex items-center gap-3 pl-5 md:pl-0">
+                {!infrastructure && <>
+                  <button onClick={() => void launchApp(app)} disabled={launchingAppId !== null} className="inline-flex items-center gap-1.5 border border-[var(--border-subtle)] px-3 py-2 text-xs text-[var(--text-primary)] hover:bg-[var(--bg-surface)] disabled:opacity-50">{launchingAppId === app.id ? 'Launching…' : 'Launch desktop app'}</button>
+                  <button onClick={() => onOpenApp(app)} className="inline-flex items-center gap-1.5 border border-[var(--border-subtle)] px-3 py-2 text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-surface)]">Workspace preview <ArrowUpRight size={13} /></button>
+                </>}
+                <a href={app.repoUrl} target="_blank" rel="noreferrer" aria-label={'Open ' + app.name + ' source repository'} className="inline-flex items-center gap-1 text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)]">Source <ExternalLink size={12} /></a>
+              </div>
+              {launchResults[app.id] && <p role="status" className={launchResults[app.id].success ? 'text-[11px] leading-relaxed text-[var(--text-secondary)] md:col-span-3' : 'text-[11px] leading-relaxed text-rose-400 md:col-span-3'}>{launchResults[app.id].output}</p>}
+            </article>
+          );
+        })}
+        {filteredApps.length === 0 && <p className="py-10 text-center text-sm text-[var(--text-muted)]">No repositories match this search.</p>}
       </div>
-
-      {/* Detail Inspection Drawer / Modal */}
-      {inspectApp && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-2xl bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-lg shadow-2xl overflow-hidden flex flex-col text-xs">
-            <div className="px-6 py-4 border-b border-[var(--border-subtle)] flex items-center justify-between">
-              <div>
-                <h2 className="text-sm font-semibold text-[var(--text-primary)]">
-                  {inspectApp.name} Technical Manifest
-                </h2>
-                <div className="font-mono text-[11px] text-[var(--text-muted)]">
-                  {inspectApp.repoUrl}
-                </div>
-              </div>
-              <button
-                onClick={() => setInspectApp(null)}
-                className="p-1 rounded text-[var(--text-muted)] hover:text-[var(--text-primary)]"
-              >
-                <X size={16} />
-              </button>
-            </div>
-
-            <div className="p-6 space-y-5 overflow-y-auto max-h-[75vh]">
-              <div>
-                <h3 className="font-semibold text-[var(--text-primary)] mb-1">Overview</h3>
-                <p className="text-[var(--text-secondary)] leading-relaxed">
-                  {inspectApp.description}
-                </p>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3 font-mono text-[11px]">
-                <div className="p-2.5 rounded bg-[var(--bg-elevated)]">
-                  <span className="text-[var(--text-muted)]">Language Edition:</span>
-                  <div className="text-[var(--text-primary)] mt-0.5">{inspectApp.edition}</div>
-                </div>
-                <div className="p-2.5 rounded bg-[var(--bg-elevated)]">
-                  <span className="text-[var(--text-muted)]">License:</span>
-                  <div className="text-[var(--text-primary)] mt-0.5">{inspectApp.license}</div>
-                </div>
-              </div>
-
-              {inspectApp.crates.length > 0 && (
-                <div>
-                  <h3 className="font-semibold text-[var(--text-primary)] mb-2">
-                    Cargo Crates ({inspectApp.cratesCount} total)
-                  </h3>
-                  <div className="flex flex-wrap gap-1.5">
-                    {inspectApp.crates.map((c) => (
-                      <span
-                        key={c}
-                        className="px-2 py-0.5 rounded bg-[var(--bg-elevated)] font-mono text-[11px] text-[var(--text-secondary)]"
-                      >
-                        {c}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {inspectApp.cliCommand && (
-                <div>
-                  <h3 className="font-semibold text-[var(--text-primary)] mb-1">CLI Automation</h3>
-                  <div className="p-2.5 rounded bg-[var(--bg-elevated)] font-mono text-[11px] text-[#B7A0FF]">
-                    {inspectApp.cliCommand}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="px-6 py-3 border-t border-[var(--border-subtle)] bg-[var(--bg-elevated)] flex justify-between items-center">
-              <a
-                href={inspectApp.repoUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)] flex items-center gap-1"
-              >
-                <span>View on GitHub</span>
-                <ExternalLink size={12} />
-              </a>
-
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setInspectApp(null)}
-                  className="px-3 py-1.5 rounded bg-[var(--bg-surface)] border border-[var(--border-subtle)] font-medium"
-                >
-                  Close
-                </button>
-                <button
-                  onClick={() => {
-                    const target = inspectApp;
-                    setInspectApp(null);
-                    onOpenApp(target);
-                  }}
-                  className="px-4 py-1.5 rounded bg-[#B7A0FF] text-[#101114] font-semibold"
-                >
-                  Open Studio
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

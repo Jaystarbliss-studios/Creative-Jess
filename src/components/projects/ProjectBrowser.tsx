@@ -1,28 +1,68 @@
-import React, { useState } from 'react';
-import { Project, ProjectAsset, CraftApp } from '../../types';
+import React, { useRef, useState } from 'react';
+import { Project, ProjectAsset, CraftApp, AssetType } from '../../types';
 import { CRAFT_APPS } from '../../data/registry';
-import { 
-  FolderGit2, 
-  Plus, 
-  FileText, 
-  Image as ImageIcon, 
-  Layers, 
-  Video, 
-  Music, 
-  Upload, 
-  Trash2, 
-  Play, 
-  Check, 
-  Clock 
+import { storeAssetFile, getAssetFile } from '../../services/assetStorage';
+import {
+  Plus,
+  FileText,
+  Image as ImageIcon,
+  Layers,
+  Video,
+  Music,
+  Upload,
+  Download,
+  AlertCircle,
+  CheckCircle2,
+  FolderOpen,
+  ExternalLink,
 } from 'lucide-react';
 
+interface LocalWritableFile {
+  write(data: Blob): Promise<void>;
+  close(): Promise<void>;
+}
+interface LocalFileHandle {
+  readonly kind: 'file';
+  readonly name: string;
+  getFile(): Promise<File>;
+  createWritable(): Promise<LocalWritableFile>;
+}
+interface LocalDirectoryHandle {
+  readonly kind: 'directory';
+  readonly name: string;
+  getDirectoryHandle(name: string, options: { create: boolean }): Promise<LocalDirectoryHandle>;
+  getFileHandle(name: string, options?: { create?: boolean }): Promise<LocalFileHandle>;
+  entries(): AsyncIterableIterator<[string, LocalFileHandle | LocalDirectoryHandle]>;
+}
+
+function safeFolderSegment(value: string): string {
+  const cleaned = value.replace(/[<>:"\/\\|?*\u0000-\u001F]/g, '_').replace(/[. ]+$/g, '').slice(0, 100);
+  if (!cleaned || /^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])$/i.test(cleaned)) return 'CraftProject';
+  return cleaned;
+}
 interface ProjectBrowserProps {
   projects: Project[];
   activeProject: Project;
-  onSelectProject: (p: Project) => void;
+  onSelectProject: (project: Project) => void;
   onCreateProject: (name: string, description: string) => void;
   onAddAsset: (projectId: string, asset: ProjectAsset) => void;
+  onReplaceAsset: (projectId: string, asset: ProjectAsset) => void;
   onOpenApp: (app: CraftApp, asset?: ProjectAsset) => void;
+}
+
+function getAssetDetails(file: File): { type: AssetType; appId: string } {
+  const extension = file.name.includes('.') ? '.' + file.name.split('.').pop()!.toLowerCase() : '';
+  if (extension === '.svg') return { type: 'vector_graphic', appId: 'vectorcraft' };
+  if (file.type.startsWith('image/')) return { type: 'raster_image', appId: 'photocraft' };
+  if (file.type.startsWith('video/')) return { type: 'video_clip', appId: 'filmcraft' };
+  if (file.type.startsWith('audio/')) return { type: 'audio_track', appId: 'soundcraft' };
+  if (extension === '.pdf') return { type: 'pdf', appId: 'pdfcraft' };
+  if (['.doc', '.docx', '.rtf', '.txt', '.odt'].includes(extension)) return { type: 'document', appId: 'wordcraft' };
+  if (['.ppt', '.pptx', '.odp', '.key'].includes(extension)) return { type: 'presentation', appId: 'deckcraft' };
+  if (['.xls', '.xlsx', '.csv', '.ods'].includes(extension)) return { type: 'spreadsheet', appId: 'gridcraft' };
+  if (['.dxf', '.dwg', '.step', '.stp', '.iges', '.igs'].includes(extension)) return { type: 'cad_drawing', appId: 'cadcraft' };
+  if (['.ttf', '.otf', '.woff', '.woff2'].includes(extension)) return { type: 'font', appId: 'craft-fonts' };
+  return { type: 'document', appId: 'wordcraft' };
 }
 
 export const ProjectBrowser: React.FC<ProjectBrowserProps> = ({
@@ -31,16 +71,22 @@ export const ProjectBrowser: React.FC<ProjectBrowserProps> = ({
   onSelectProject,
   onCreateProject,
   onAddAsset,
+  onReplaceAsset,
   onOpenApp,
 }) => {
   const [isCreating, setIsCreating] = useState(false);
   const [newProjectName, setNewProjectName] = useState('');
   const [newProjectDesc, setNewProjectDesc] = useState('');
+  const [importStatus, setImportStatus] = useState<{ success: boolean; message: string } | null>(null);
+  const [isImporting, setIsImporting] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const [isSyncingFolder, setIsSyncingFolder] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const formatFileSize = (bytes: number) => {
-    if (bytes >= 1048576) return `${(bytes / 1048576).toFixed(1)} MB`;
-    if (bytes >= 1024) return `${(bytes / 1024).toFixed(0)} KB`;
-    return `${bytes} B`;
+    if (bytes >= 1048576) return (bytes / 1048576).toFixed(1) + ' MB';
+    if (bytes >= 1024) return (bytes / 1024).toFixed(0) + ' KB';
+    return bytes + ' B';
   };
 
   const getAssetIcon = (type: string) => {
@@ -53,8 +99,8 @@ export const ProjectBrowser: React.FC<ProjectBrowserProps> = ({
     }
   };
 
-  const handleCreate = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleCreate = (event: React.FormEvent) => {
+    event.preventDefault();
     if (!newProjectName.trim()) return;
     onCreateProject(newProjectName.trim(), newProjectDesc.trim());
     setNewProjectName('');
@@ -62,214 +108,288 @@ export const ProjectBrowser: React.FC<ProjectBrowserProps> = ({
     setIsCreating(false);
   };
 
-  const handleSimulateFileUpload = () => {
-    const newAsset: ProjectAsset = {
-      id: `asset-${Date.now()}`,
-      name: `imported-asset-${Date.now().toString().slice(-4)}.photo`,
-      type: 'raster_image',
-      extension: '.photo',
-      sizeBytes: 1540000,
+  const handleFileImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    setIsImporting(true);
+    setImportStatus(null);
+    const id = 'asset-' + crypto.randomUUID();
+    const extension = file.name.includes('.') ? '.' + file.name.split('.').pop()!.toLowerCase() : '';
+    const details = getAssetDetails(file);
+    const asset: ProjectAsset = {
+      id,
+      name: file.name,
+      type: details.type,
+      extension,
+      sizeBytes: file.size,
       updatedAt: new Date().toISOString(),
-      compatibleAppId: 'photocraft',
-      dimensions: '2560 × 1440 px',
+      compatibleAppId: details.appId,
+      metadata: { mimeType: file.type || 'unknown', lastModified: file.lastModified },
+      contentStoredLocally: true,
     };
-    onAddAsset(activeProject.id, newAsset);
+    try {
+      await storeAssetFile(id, file);
+      onAddAsset(activeProject.id, asset);
+      setImportStatus({ success: true, message: 'Imported ' + file.name + ' into this browser profile. Suggested application: ' + details.appId + '. Compatibility has not been verified.' });
+    } catch (error) {
+      setImportStatus({ success: false, message: 'File was not added because browser storage failed. ' + (error instanceof Error ? error.message : 'Unknown storage error') });
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
+  const handleExportProjectToFolder = async () => {
+    const picker = (window as unknown as { showDirectoryPicker?: () => Promise<LocalDirectoryHandle> }).showDirectoryPicker;
+    if (!picker) {
+      setImportStatus({ success: false, message: 'This browser does not support folder export. Use a current desktop version of Chrome or Edge, or download each file individually.' });
+      return;
+    }
+    setIsExporting(true);
+    setImportStatus(null);
+    try {
+      const chosenRoot = await picker.call(window);
+      const folderName = safeFolderSegment(activeProject.name) + '-' + new Date().toISOString().replace(/[:.]/g, '-');
+      const projectFolder = await chosenRoot.getDirectoryHandle(folderName, { create: true });
+      let exported = 0;
+      let missing = 0;
+      const usedNames = new Set<string>();
+      for (const asset of activeProject.assets) {
+        if (!asset.contentStoredLocally) { missing++; continue; }
+        const stored = await getAssetFile(asset.id);
+        if (!stored) { missing++; continue; }
+        let fileName = safeFolderSegment(stored.name);
+        if (usedNames.has(fileName.toLowerCase())) {
+          const dot = fileName.lastIndexOf('.');
+          const stem = dot > 0 ? fileName.slice(0, dot) : fileName;
+          const extension = dot > 0 ? fileName.slice(dot) : '';
+          fileName = stem + '-' + safeFolderSegment(asset.id.slice(-8)) + extension;
+        }
+        usedNames.add(fileName.toLowerCase());
+        const fileHandle = await projectFolder.getFileHandle(fileName, { create: true });
+        const writable = await fileHandle.createWritable();
+        await writable.write(stored.blob);
+        await writable.close();
+        exported++;
+      }
+      if (exported === 0) {
+        setImportStatus({ success: false, message: 'No imported file bytes were found to export. Import real files into this project first.' });
+      } else {
+        try { localStorage.setItem('craft-workspace:local-export-folder:' + activeProject.id, folderName); } catch { /* File export should succeed even when browser metadata storage is unavailable. */ }
+        setImportStatus({ success: true, message: 'Exported ' + exported + ' file(s) to the selected folder under ' + folderName + (missing ? '; skipped ' + missing + ' sample or unavailable file record(s).' : '.') + ' If you selected the configured CraftProjects\\exports folder, the exported files are available to the scoped MCP tools.' });
+      }
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        setImportStatus({ success: false, message: 'Folder selection was cancelled. No files were exported.' });
+      } else {
+        setImportStatus({ success: false, message: 'Could not export project files. ' + (error instanceof Error ? error.message : 'Unknown folder access error.') });
+      }
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleImportFolderChanges = async () => {
+    const picker = (window as unknown as { showDirectoryPicker?: () => Promise<LocalDirectoryHandle> }).showDirectoryPicker;
+    if (!picker) {
+      setImportStatus({ success: false, message: 'Folder import requires a current desktop version of Chrome or Edge. You can still import individual files.' });
+      return;
+    }
+    setIsSyncingFolder(true);
+    setImportStatus(null);
+    try {
+      const selectedFolder = await picker.call(window);
+      const existing = activeProject.assets;
+      const handledAssetIds = new Set<string>();
+      let updated = 0;
+      let added = 0;
+      let skipped = 0;
+      for await (const [fileName, handle] of selectedFolder.entries()) {
+        if (handle.kind !== 'file') continue;
+        const file = await handle.getFile();
+        const lowerName = fileName.toLowerCase();
+        const matched = existing.find((asset) => !handledAssetIds.has(asset.id) && asset.name.toLowerCase() === lowerName)
+          || existing.find((asset) => {
+            if (handledAssetIds.has(asset.id)) return false;
+            const dot = fileName.lastIndexOf('.');
+            const stem = dot > 0 ? fileName.slice(0, dot) : fileName;
+            const extension = dot > 0 ? fileName.slice(dot) : '';
+            return stem.toLowerCase() === (safeFolderSegment(asset.name.includes('.') ? asset.name.slice(0, asset.name.lastIndexOf('.')) : asset.name) + '-' + asset.id.slice(-8)).toLowerCase()
+              && extension.toLowerCase() === (asset.extension || '').toLowerCase();
+          });
+        try {
+          if (matched) {
+            await storeAssetFile(matched.id, file);
+            handledAssetIds.add(matched.id);
+            onReplaceAsset(activeProject.id, {
+              ...matched,
+              sizeBytes: file.size,
+              updatedAt: new Date().toISOString(),
+              metadata: { ...matched.metadata, mimeType: file.type || 'unknown', lastModified: file.lastModified, importedFromFolder: selectedFolder.name },
+              contentStoredLocally: true,
+            });
+            updated++;
+          } else {
+            const id = 'asset-' + crypto.randomUUID();
+            const extension = file.name.includes('.') ? '.' + file.name.split('.').pop()!.toLowerCase() : '';
+            const details = getAssetDetails(file);
+            await storeAssetFile(id, file);
+            onAddAsset(activeProject.id, {
+              id,
+              name: file.name,
+              type: details.type,
+              extension,
+              sizeBytes: file.size,
+              updatedAt: new Date().toISOString(),
+              compatibleAppId: details.appId,
+              metadata: { mimeType: file.type || 'unknown', lastModified: file.lastModified, importedFromFolder: selectedFolder.name },
+              contentStoredLocally: true,
+            });
+            added++;
+          }
+        } catch {
+          skipped++;
+        }
+      }
+      setImportStatus({ success: skipped === 0, message: 'Folder import finished: ' + updated + ' existing asset(s) refreshed, ' + added + ' new file(s) imported' + (skipped ? ', ' + skipped + ' file(s) could not be stored' : '') + '. This copies the selected folder into browser storage; it does not establish continuous two-way sync.' });
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        setImportStatus({ success: false, message: 'Folder selection was cancelled. Nothing was imported.' });
+      } else {
+        setImportStatus({ success: false, message: 'Could not import folder changes. ' + (error instanceof Error ? error.message : 'Unknown folder access error.') });
+      }
+    } finally {
+      setIsSyncingFolder(false);
+    }
+  };
+
+  const handleDownload = async (asset: ProjectAsset) => {
+    setImportStatus(null);
+    try {
+      const stored = await getAssetFile(asset.id);
+      if (!stored) throw new Error('The file bytes are not present in this browser profile. Re-import the original file.');
+      const url = URL.createObjectURL(stored.blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = stored.name;
+      link.click();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1500);
+      setImportStatus({ success: true, message: 'Download started for ' + stored.name + '.' });
+    } catch (error) {
+      setImportStatus({ success: false, message: error instanceof Error ? error.message : 'Could not download this asset.' });
+    }
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-6 py-8 space-y-8">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[var(--border-subtle)] pb-6">
-        <div className="space-y-1">
-          <div className="text-xs font-mono text-[#B7A0FF] tracking-wider uppercase">
-            Workspace Storage
-          </div>
-          <h1 className="text-2xl font-bold tracking-tight text-[var(--text-primary)]">
-            Projects & Multi-Disciplinary Assets
-          </h1>
-          <p className="text-sm text-[var(--text-secondary)]">
-            Cross-media project manifests organizing work across raster, vector, video, audio, CAD, and document editors.
-          </p>
+    <div className="mx-auto max-w-7xl space-y-8 px-6 py-8">
+      <header className="flex flex-col justify-between gap-4 border-b border-[var(--border-subtle)] pb-6 sm:flex-row sm:items-center">
+        <div>
+          <div className="text-[11px] font-mono uppercase tracking-wider text-[var(--text-muted)]">Local project library</div>
+          <h1 className="mt-2 text-2xl font-semibold tracking-tight text-[var(--text-primary)]">Projects and assets</h1>
+          <p className="mt-2 max-w-3xl text-sm leading-relaxed text-[var(--text-secondary)]">Project metadata is saved in this browser. Imported file bytes are stored in IndexedDB when available; suggested application compatibility is not a guarantee that the upstream editor is integrated.</p>
         </div>
-
-        <button
-          onClick={() => setIsCreating(true)}
-          className="flex items-center gap-1.5 px-3.5 py-2 rounded bg-[#B7A0FF] text-[#101114] font-medium text-xs hover:bg-[#c8b6ff] transition-colors shrink-0"
-        >
-          <Plus size={14} />
-          <span>New Project</span>
+        <button onClick={() => setIsCreating(true)} className="inline-flex shrink-0 items-center gap-2 border border-[var(--border-subtle)] px-3 py-2 text-xs font-medium text-[var(--text-primary)] hover:bg-[var(--bg-surface)]">
+          <Plus size={14} /> New project
         </button>
-      </div>
+      </header>
 
-      {/* New Project Modal / Dialog */}
-      {isCreating && (
-        <div className="p-5 rounded bg-[var(--bg-surface)] border border-[var(--border-subtle)] space-y-4 max-w-lg">
-          <h2 className="text-sm font-semibold text-[var(--text-primary)]">Create Creative Project</h2>
-          <form onSubmit={handleCreate} className="space-y-3">
-            <div>
-              <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Project Name</label>
-              <input
-                type="text"
-                required
-                value={newProjectName}
-                onChange={(e) => setNewProjectName(e.target.value)}
-                placeholder="e.g. Solaris Exhibition Brand Book"
-                className="w-full bg-[var(--bg-elevated)] border border-[var(--border-subtle)] rounded px-3 py-1.5 text-xs text-[var(--text-primary)] outline-none focus:border-[#B7A0FF]"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Description</label>
-              <input
-                type="text"
-                value={newProjectDesc}
-                onChange={(e) => setNewProjectDesc(e.target.value)}
-                placeholder="Brief summary of creative deliverables..."
-                className="w-full bg-[var(--bg-elevated)] border border-[var(--border-subtle)] rounded px-3 py-1.5 text-xs text-[var(--text-primary)] outline-none focus:border-[#B7A0FF]"
-              />
-            </div>
-            <div className="flex justify-end gap-2 pt-2">
-              <button
-                type="button"
-                onClick={() => setIsCreating(false)}
-                className="px-3 py-1.5 rounded text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)]"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="px-4 py-1.5 rounded bg-[#B7A0FF] text-[#101114] font-medium text-xs hover:bg-[#c8b6ff]"
-              >
-                Create Project
-              </button>
-            </div>
-          </form>
+      {importStatus && (
+        <div className={importStatus.success ? 'flex items-start gap-2 border-l-2 border-emerald-500 pl-3 py-2 text-xs text-[var(--text-secondary)]' : 'flex items-start gap-2 border-l-2 border-rose-500 pl-3 py-2 text-xs text-[var(--text-secondary)]'} role="status">
+          {importStatus.success ? <CheckCircle2 size={14} className="mt-0.5 shrink-0 text-emerald-400" /> : <AlertCircle size={14} className="mt-0.5 shrink-0 text-rose-400" />}
+          <span>{importStatus.message}</span>
         </div>
       )}
 
-      {/* Projects Horizontal Selector */}
-      <div className="space-y-3">
-        <span className="text-xs font-semibold text-[var(--text-primary)]">
-          Projects ({projects.length})
-        </span>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          {projects.map((p) => {
-            const isActive = p.id === activeProject.id;
-            return (
-              <div
-                key={p.id}
-                onClick={() => onSelectProject(p)}
-                className={`p-4 rounded border cursor-pointer transition-all ${
-                  isActive
-                    ? 'bg-[var(--bg-surface)] border-[#B7A0FF] shadow-lg ring-1 ring-[#B7A0FF]'
-                    : 'bg-[var(--bg-surface)] border-[var(--border-subtle)] hover:border-[var(--border-hover)]'
-                }`}
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="space-y-1 min-w-0">
-                    <div className="text-sm font-semibold text-[var(--text-primary)] truncate">
-                      {p.name}
-                    </div>
-                    <div className="text-xs text-[var(--text-muted)] line-clamp-2">
-                      {p.description}
-                    </div>
-                  </div>
-                  {isActive && (
-                    <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[#B7A0FF]/20 text-[#B7A0FF] shrink-0">
-                      ACTIVE
-                    </span>
-                  )}
-                </div>
+      {isCreating && (
+        <section className="max-w-xl border border-[var(--border-subtle)] p-5">
+          <h2 className="text-sm font-semibold text-[var(--text-primary)]">Create project</h2>
+          <form onSubmit={handleCreate} className="mt-4 space-y-3">
+            <div>
+              <label className="mb-1 block text-xs text-[var(--text-secondary)]">Project name</label>
+              <input type="text" required value={newProjectName} onChange={(event) => setNewProjectName(event.target.value)} placeholder="e.g. Exhibition identity system" className="w-full border border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-3 py-2 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--accent)]" />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs text-[var(--text-secondary)]">Description</label>
+              <input type="text" value={newProjectDesc} onChange={(event) => setNewProjectDesc(event.target.value)} placeholder="A short description of this project" className="w-full border border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-3 py-2 text-xs text-[var(--text-primary)] outline-none focus:border-[var(--accent)]" />
+            </div>
+            <div className="flex justify-end gap-3 pt-2">
+              <button type="button" onClick={() => setIsCreating(false)} className="px-3 py-2 text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)]">Cancel</button>
+              <button type="submit" className="border border-[var(--accent)] px-3 py-2 text-xs text-[var(--text-primary)]">Create project</button>
+            </div>
+          </form>
+        </section>
+      )}
 
-                <div className="mt-4 pt-2 border-t border-[var(--border-subtle)]/60 flex items-center justify-between text-[11px] text-[var(--text-muted)] font-mono">
-                  <span>{p.assets.length} assets</span>
-                  <span>{new Date(p.updatedAt).toLocaleDateString()}</span>
+      <section>
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-[var(--text-primary)]">Projects <span className="ml-2 font-mono text-xs text-[var(--text-muted)]">{projects.length}</span></h2>
+          <span className="text-[10px] text-[var(--text-muted)]">Select a project to view its files</span>
+        </div>
+        <div className="divide-y divide-[var(--border-subtle)] border-y border-[var(--border-subtle)]">
+          {projects.map((project) => {
+            const active = project.id === activeProject.id;
+            return (
+              <button key={project.id} onClick={() => onSelectProject(project)} className={active ? 'flex w-full items-center justify-between gap-4 border-l-2 border-[var(--accent)] bg-[var(--bg-surface)] px-3 py-4 text-left' : 'flex w-full items-center justify-between gap-4 border-l-2 border-transparent px-3 py-4 text-left hover:bg-[var(--bg-surface)]'}>
+                <div className="min-w-0">
+                  <div className="truncate text-sm font-medium text-[var(--text-primary)]">{project.name}</div>
+                  <div className="mt-1 truncate text-xs text-[var(--text-muted)]">{project.description || 'No description'}</div>
+                </div>
+                <div className="flex shrink-0 items-center gap-4 text-[11px] text-[var(--text-muted)]">
+                  <span>{project.assets.length} assets</span>
+                  <span className="hidden sm:inline">{new Date(project.updatedAt).toLocaleDateString()}</span>
+                  {active && <span className="text-[var(--accent)]">Active</span>}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </section>
+
+      <section>
+        <div className="mb-3 flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
+          <div>
+            <h2 className="text-sm font-semibold text-[var(--text-primary)]">Files in {activeProject.name}</h2>
+            <p className="mt-1 text-xs text-[var(--text-muted)]">{activeProject.assets.length} asset records · sample entries are illustrative until you import real files</p>
+          </div>
+          <div>
+            <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileImport} aria-label="Choose a file to import" />
+            <div className="flex flex-wrap gap-2">
+              <button onClick={() => void handleExportProjectToFolder()} disabled={isExporting || isImporting || isSyncingFolder || activeProject.assets.length === 0} className="inline-flex items-center gap-2 border border-[var(--border-subtle)] px-3 py-2 text-xs text-[var(--text-primary)] hover:bg-[var(--bg-surface)] disabled:opacity-50">
+                <FolderOpen size={13} /> {isExporting ? 'Exporting…' : 'Export to folder'}
+              </button>
+              <button onClick={() => void handleImportFolderChanges()} disabled={isImporting || isExporting || isSyncingFolder} className="inline-flex items-center gap-2 border border-[var(--border-subtle)] px-3 py-2 text-xs text-[var(--text-primary)] hover:bg-[var(--bg-surface)] disabled:opacity-50">
+                <FolderOpen size={13} /> {isSyncingFolder ? 'Importing folder…' : 'Import folder changes'}
+              </button>
+              <button onClick={() => fileInputRef.current?.click()} disabled={isImporting || isExporting || isSyncingFolder} className="inline-flex items-center gap-2 border border-[var(--border-subtle)] px-3 py-2 text-xs text-[var(--text-primary)] hover:bg-[var(--bg-surface)] disabled:opacity-50">
+                <Upload size={13} /> {isImporting ? 'Importing…' : 'Import file'}
+              </button>
+            </div>
+          </div>
+        </div>
+        <div className="divide-y divide-[var(--border-subtle)] border-y border-[var(--border-subtle)]">
+          {activeProject.assets.map((asset) => {
+            const Icon = getAssetIcon(asset.type);
+            const targetApp = CRAFT_APPS.find((item) => item.id === asset.compatibleAppId);
+            return (
+              <div key={asset.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 py-3 sm:grid-cols-[minmax(0,1fr)_140px_auto]">
+                <div className="flex min-w-0 items-center gap-3">
+                  <Icon size={16} className="shrink-0 text-[var(--text-muted)]" />
+                  <div className="min-w-0">
+                    <div className="truncate font-mono text-xs text-[var(--text-primary)]">{asset.name}</div>
+                    <div className="mt-1 truncate text-[10px] text-[var(--text-muted)]">{asset.extension} · {formatFileSize(asset.sizeBytes)}{asset.contentStoredLocally ? ' · stored in this browser' : ' · metadata only / sample'}</div>
+                  </div>
+                </div>
+                <div className="hidden truncate text-xs text-[var(--text-muted)] sm:block">{targetApp ? targetApp.name + ' (suggested)' : asset.compatibleAppId}</div>
+                <div className="flex items-center justify-end gap-3">
+                  {asset.contentStoredLocally && <button onClick={() => void handleDownload(asset)} aria-label={'Download ' + asset.name} title="Download original file" className="text-[var(--text-muted)] hover:text-[var(--text-primary)]"><Download size={14} /></button>}
+                  {targetApp && <button onClick={() => onOpenApp(targetApp, asset)} className="inline-flex items-center gap-1 text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)]">Preview <ExternalLink size={12} /></button>}
                 </div>
               </div>
             );
           })}
+          {activeProject.assets.length === 0 && <p className="py-8 text-xs text-[var(--text-muted)]">No files in this project. Import a file to begin building its asset library.</p>}
         </div>
-      </div>
-
-      {/* Assets Table for Active Project */}
-      <div className="space-y-3 pt-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-sm font-semibold text-[var(--text-primary)]">
-              Project Assets: {activeProject.name} ({activeProject.assets.length})
-            </h2>
-            <p className="text-xs text-[var(--text-muted)]">
-              All files are preserved in their native application formats.
-            </p>
-          </div>
-
-          <button
-            onClick={handleSimulateFileUpload}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-[var(--bg-surface)] border border-[var(--border-subtle)] hover:border-[#B7A0FF] text-xs font-medium transition-colors"
-          >
-            <Upload size={13} />
-            <span>Import Asset</span>
-          </button>
-        </div>
-
-        {/* Asset Table */}
-        <div className="border border-[var(--border-subtle)] rounded overflow-hidden bg-[var(--bg-surface)]">
-          <table className="w-full text-left text-xs">
-            <thead>
-              <tr className="border-b border-[var(--border-subtle)] bg-[var(--bg-elevated)] font-medium text-[var(--text-secondary)]">
-                <th className="py-2.5 px-4">Filename</th>
-                <th className="py-2.5 px-4">Type</th>
-                <th className="py-2.5 px-4">Dimensions / Specs</th>
-                <th className="py-2.5 px-4">Size</th>
-                <th className="py-2.5 px-4">Target Application</th>
-                <th className="py-2.5 px-4 text-right">Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[var(--border-subtle)]/60 font-mono">
-              {activeProject.assets.map((asset) => {
-                const Icon = getAssetIcon(asset.type);
-                const targetApp = CRAFT_APPS.find((a) => a.id === asset.compatibleAppId);
-                return (
-                  <tr key={asset.id} className="hover:bg-[var(--bg-elevated)]/40 transition-colors">
-                    <td className="py-3 px-4 font-sans font-medium text-[var(--text-primary)]">
-                      <div className="flex items-center gap-2">
-                        <Icon size={14} className="text-[#B7A0FF]" />
-                        <span className="font-mono text-xs">{asset.name}</span>
-                      </div>
-                    </td>
-                    <td className="py-3 px-4 text-[11px] text-[var(--text-secondary)] capitalize font-sans">
-                      {asset.type.replace('_', ' ')}
-                    </td>
-                    <td className="py-3 px-4 text-[11px] text-[var(--text-muted)]">
-                      {asset.dimensions || '—'}
-                    </td>
-                    <td className="py-3 px-4 text-[11px] text-[var(--text-muted)]">
-                      {formatFileSize(asset.sizeBytes)}
-                    </td>
-                    <td className="py-3 px-4 text-[11px] font-sans">
-                      {targetApp ? (
-                        <span className="text-[#B7A0FF] font-medium">{targetApp.name}</span>
-                      ) : (
-                        <span className="text-[var(--text-muted)]">{asset.compatibleAppId}</span>
-                      )}
-                    </td>
-                    <td className="py-3 px-4 text-right">
-                      {targetApp && (
-                        <button
-                          onClick={() => onOpenApp(targetApp, asset)}
-                          className="px-2.5 py-1 rounded bg-[var(--bg-elevated)] hover:bg-[#B7A0FF] text-[var(--text-primary)] hover:text-[#101114] text-xs font-sans font-medium transition-colors inline-flex items-center gap-1"
-                        >
-                          <Play size={11} />
-                          <span>Open</span>
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      </section>
     </div>
   );
 };

@@ -1,0 +1,43 @@
+name: PowerShell bootstrap syntax
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/bootstrap-upstream.ps1'
+      - 'scripts/start-companion.ps1'
+      - '.github/workflows/powershell-check.yml'
+  push:
+    branches:
+      - work/real-integration-foundation
+    paths:
+      - 'scripts/bootstrap-upstream.ps1'
+      - 'scripts/start-companion.ps1'
+      - '.github/workflows/powershell-check.yml'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  parse:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Parse bootstrap script
+        shell: pwsh
+        run: |
+          foreach ($scriptPath in @('scripts/bootstrap-upstream.ps1', 'scripts/start-companion.ps1')) {
+            $tokens = $null
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile(
+              (Join-Path $PWD $scriptPath),
+              [ref]$tokens,
+              [ref]$errors
+            ) | Out-Null
+            if ($errors.Count -gt 0) {
+              Write-Error "PowerShell syntax errors in $scriptPath"
+              $errors | Format-List
+              exit 1
+            }
+            Write-Host "PowerShell syntax is valid: $scriptPath"
+          }

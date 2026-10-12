@@ -23,7 +23,8 @@ export const CompanionModal: React.FC<CompanionModalProps> = ({
   onClose,
   companionState,
 }) => {
-  const [tokenInput, setTokenInput] = useState('craft-token-9876-secure');
+  const [tokenInput, setTokenInput] = useState('');
+  const [statusIsError, setStatusIsError] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [isPairing, setIsPairing] = useState(false);
 
@@ -33,7 +34,8 @@ export const CompanionModal: React.FC<CompanionModalProps> = ({
     setIsPairing(true);
     setStatusMessage(null);
     try {
-      const result = await companionService.simulatePairing(tokenInput);
+      const result = await companionService.pair(tokenInput);
+      setStatusIsError(!result.success);
       setStatusMessage(result.message);
     } finally {
       setIsPairing(false);
@@ -42,6 +44,7 @@ export const CompanionModal: React.FC<CompanionModalProps> = ({
 
   const handleDisconnect = () => {
     companionService.disconnect();
+    setStatusIsError(false);
     setStatusMessage('Disconnected from local companion.');
   };
 
@@ -84,7 +87,7 @@ export const CompanionModal: React.FC<CompanionModalProps> = ({
               <span className={`font-mono text-[11px] px-2 py-0.5 rounded ${
                 companionState.connected ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-400'
               }`}>
-                {companionState.connected ? 'CONNECTED & PAIRED' : 'DISCONNECTED'}
+                {companionState.connected && companionState.tokenPaired ? 'CONNECTED & PAIRED' : companionState.connected ? 'CONNECTED · NOT PAIRED' : 'DISCONNECTED'}
               </span>
             </div>
 
@@ -127,16 +130,29 @@ export const CompanionModal: React.FC<CompanionModalProps> = ({
           </div>
 
           {statusMessage && (
-            <div className="p-2.5 rounded bg-[var(--bg-elevated)] border border-emerald-500/40 text-emerald-400 text-[11px] font-mono flex items-center gap-2">
+            <div className={`p-2.5 rounded bg-[var(--bg-elevated)] border text-[11px] font-mono flex items-center gap-2 ${statusIsError ? 'border-rose-500/40 text-rose-400' : 'border-emerald-500/40 text-emerald-400'}`}>
               <CheckCircle2 size={13} />
               <span>{statusMessage}</span>
             </div>
           )}
 
+          <div className="space-y-2">
+            <h3 className="text-xs font-semibold text-[var(--text-primary)]">Configured local applications ({companionState.availableApps.length})</h3>
+            <p className="text-[11px] leading-relaxed text-[var(--text-muted)]">The companion can launch only applications whose absolute executable paths you configured on this machine. It does not edit files or run arbitrary shell commands.</p>
+            {companionState.availableApps.length > 0 ? <div className="flex flex-wrap gap-2">{companionState.availableApps.map((appId) => <span key={appId} className="border border-[var(--border-subtle)] px-2 py-1 font-mono text-[10px] text-[var(--text-secondary)]">{appId}</span>)}</div> : <p className="text-[11px] text-amber-400">No executable paths configured. Set CRAFT_APP_PATHS_JSON and restart the companion.</p>}
+          </div>
+
+          <div className="space-y-2">
+            <h3 className="text-xs font-semibold text-[var(--text-primary)]">Configured MCP editors ({companionState.availableMcpApps.length})</h3>
+            <p className="text-[11px] leading-relaxed text-[var(--text-muted)]">MCP tools are discovered from the actual CLI at runtime. Add CLI executable paths through CRAFT_MCP_PATHS_JSON and restart the companion. No upstream editing tool is considered available until the CLI responds to MCP initialization and tools/list.</p>
+            <p className="text-[11px] text-[var(--text-secondary)]">Discovered tools: {companionState.registeredToolsCount}</p>
+            {companionState.availableMcpApps.length > 0 ? <div className="flex flex-wrap gap-2">{companionState.availableMcpApps.map((appId) => <span key={appId} className="border border-[var(--border-subtle)] px-2 py-1 font-mono text-[10px] text-[var(--text-secondary)]">{appId}</span>)}</div> : <p className="text-[11px] text-amber-400">No MCP CLI paths configured.</p>}
+          </div>
+
           {/* Allowlisted Binaries */}
           <div className="space-y-2">
             <span className="font-medium text-[var(--text-primary)]">
-              Allowlisted Companion Commands ({companionState.allowlistedCommands.length})
+              Commands reported by companion ({companionState.allowlistedCommands.length})
             </span>
             <div className="grid grid-cols-2 gap-1.5 font-mono text-[10px] text-[var(--text-secondary)]">
               {companionState.allowlistedCommands.map((cmd) => (

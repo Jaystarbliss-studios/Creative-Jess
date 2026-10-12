@@ -28,13 +28,39 @@ import { GridCraftWorkspace } from './components/workspaces/GridCraftWorkspace';
 import { GenericCraftWorkspace } from './components/workspaces/GenericCraftWorkspace';
 
 export default function App() {
-  const [appName, setAppName] = useState('Craft Workspace');
-  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+  const [appName, setAppName] = useState(() => {
+    try { return window.localStorage.getItem('craft-workspace:name') || 'Craft Workspace'; } catch { return 'Craft Workspace'; }
+  });
+  const [theme, setTheme] = useState<'dark' | 'light'>(() => {
+    try { return window.localStorage.getItem('craft-workspace:theme') === 'light' ? 'light' : 'dark'; } catch { return 'dark'; }
+  });
   const [currentTab, setCurrentTab] = useState<string>('home');
 
   // Projects state
-  const [projects, setProjects] = useState<Project[]>(INITIAL_PROJECTS);
-  const [activeProject, setActiveProject] = useState<Project>(INITIAL_PROJECTS[0]);
+  const [projects, setProjects] = useState<Project[]>(() => {
+    try {
+      const saved = window.localStorage.getItem('craft-workspace:projects');
+      const parsed = saved ? JSON.parse(saved) : null;
+      if (Array.isArray(parsed)) return parsed as Project[];
+    } catch {
+      // Recover to the built-in sample workspace if local data is unreadable.
+    }
+    return INITIAL_PROJECTS;
+  });
+  const [activeProject, setActiveProject] = useState<Project>(() => {
+    try {
+      const savedProjects = window.localStorage.getItem('craft-workspace:projects');
+      const parsed = savedProjects ? JSON.parse(savedProjects) : INITIAL_PROJECTS;
+      const activeId = window.localStorage.getItem('craft-workspace:active-project');
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        const match = parsed.find((project: Project) => project.id === activeId);
+        if (match) return match as Project;
+      }
+    } catch {
+      // Recover to the first sample project when persisted state cannot be read.
+    }
+    return INITIAL_PROJECTS[0];
+  });
 
   // Active editor state
   const [activeApp, setActiveApp] = useState<CraftApp | null>(null);
@@ -59,6 +85,26 @@ export default function App() {
     }
   }, [theme]);
 
+  useEffect(() => {
+    try { window.localStorage.setItem('craft-workspace:name', appName); } catch { /* Keep the current-session name. */ }
+  }, [appName]);
+
+  // Persist workspace metadata locally. Browser storage may be unavailable or full; editing remains usable in memory.
+  useEffect(() => {
+    try { window.localStorage.setItem('craft-workspace:projects', JSON.stringify(projects)); } catch (error) {
+      console.warn('Craft Workspace could not persist project metadata to browser storage.', error);
+    }
+  }, [projects]);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem('craft-workspace:active-project', activeProject.id);
+      window.localStorage.setItem('craft-workspace:theme', theme);
+    } catch {
+      // Keep current-session preferences if browser storage is unavailable.
+    }
+  }, [activeProject.id, theme]);
+
   // Subscribe to companion service updates
   useEffect(() => {
     const unsub = companionService.subscribe((state) => {
@@ -82,6 +128,22 @@ export default function App() {
     setCurrentTab('editor');
   };
 
+  const handleLaunchNativeApp = async (app: CraftApp): Promise<{ success: boolean; output: string }> => {
+    if (!companionState.connected || !companionState.tokenPaired) {
+      setIsCompanionModalOpen(true);
+      return { success: false, output: 'Pair the local companion before launching desktop applications.' };
+    }
+    if (!companionState.availableApps.includes(app.id)) {
+      setIsCompanionModalOpen(true);
+      return { success: false, output: 'No executable is configured for ' + app.name + '. Add its absolute path to CRAFT_APP_PATHS_JSON and restart the companion.' };
+    }
+    try {
+      return await companionService.executeAllowlistedCommand('open-app', [app.id]);
+    } catch (error) {
+      return { success: false, output: error instanceof Error ? error.message : 'The desktop application could not be launched.' };
+    }
+  };
+
   // Switch project
   const handleSelectProject = (project: Project) => {
     setActiveProject(project);
@@ -98,7 +160,7 @@ export default function App() {
       activeAppId: 'photocraft',
       assets: [],
     };
-    setProjects([newProj, ...projects]);
+    setProjects((previous) => [newProj, ...previous]);
     setActiveProject(newProj);
   };
 
@@ -126,6 +188,21 @@ export default function App() {
     }
   };
 
+  const handleReplaceAsset = (projectId: string, updatedAsset: ProjectAsset) => {
+    setProjects((prev) => prev.map((project) => project.id === projectId ? {
+      ...project,
+      updatedAt: new Date().toISOString(),
+      assets: project.assets.map((asset) => asset.id === updatedAsset.id ? updatedAsset : asset),
+    } : project));
+    if (activeProject.id === projectId) {
+      setActiveProject((prev) => ({
+        ...prev,
+        updatedAt: new Date().toISOString(),
+        assets: prev.assets.map((asset) => asset.id === updatedAsset.id ? updatedAsset : asset),
+      }));
+    }
+  };
+
   // Save asset from an editor into the active project
   const handleSaveEditorAsset = (assetName: string, dataUrl: string) => {
     const newAsset: ProjectAsset = {
@@ -142,6 +219,13 @@ export default function App() {
   };
 
   // Toggle AI mode between Cloud and Local
+  const handleUpdateAIConfig = (cfg: Partial<AIProviderConfig>) => {
+    if (cfg.mode) aiService.setMode(cfg.mode);
+    if (typeof cfg.localEndpoint === 'string') aiService.setLocalEndpoint(cfg.localEndpoint);
+    if (typeof cfg.confirmConsequentialTools === 'boolean') aiService.setConfirmConsequential(cfg.confirmConsequentialTools);
+    setAIConfig({ ...aiService.getConfig(), ...cfg });
+  };
+
   const handleSwitchAIMode = () => {
     const nextMode = aiConfig.mode === 'cloud' ? 'local' : 'cloud';
     aiService.setMode(nextMode);
@@ -256,6 +340,7 @@ export default function App() {
             onSelectProject={handleSelectProject}
             onCreateProject={handleCreateProject}
             onAddAsset={handleAddAsset}
+            onReplaceAsset={handleReplaceAsset}
             onOpenApp={handleOpenApp}
           />
         )}
@@ -264,6 +349,7 @@ export default function App() {
           <AppLibrary
             onOpenApp={handleOpenApp}
             onOpenCompanionModal={() => setIsCompanionModalOpen(true)}
+            onLaunchApp={handleLaunchNativeApp}
           />
         )}
 
@@ -274,7 +360,9 @@ export default function App() {
             activeProject={activeProject}
             activeApp={activeApp}
             aiConfig={aiConfig}
-            onUpdateAIConfig={(cfg) => setAIConfig({ ...aiConfig, ...cfg })}
+            onUpdateAIConfig={handleUpdateAIConfig}
+            companionState={companionState}
+            onOpenCompanionModal={() => setIsCompanionModalOpen(true)}
           />
         )}
 

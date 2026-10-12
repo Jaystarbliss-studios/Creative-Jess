@@ -75,7 +75,8 @@ export interface ProjectAsset {
   thumbnailUrl?: string;
   dimensions?: string;
   contentData?: string;
-  metadata?: Record<string, string | number>;
+  contentStoredLocally?: boolean;
+  metadata?: Record<string, string | number | boolean>;
 }
 
 export interface Project {
@@ -125,6 +126,15 @@ export interface CompanionState {
   registeredToolsCount: number;
   lastHeartbeat: string | null;
   allowlistedCommands: string[];
+  availableApps: string[];
+  availableMcpApps: string[];
+}
+
+export interface McpToolDescriptor {
+  appId: string;
+  name: string;
+  description?: string;
+  inputSchema?: Record<string, unknown>;
 }
 
 export interface ActivityLog {

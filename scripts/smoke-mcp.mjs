@@ -19,6 +19,7 @@ const temp = await mkdtemp(path.join(os.tmpdir(), 'craft-mcp-smoke-'));
 const args = ['mcp'];
 if (scopedRootsConfigured) args.push('--automation-read-root', temp, '--automation-write-root', temp);
 if (acceptance === 'pdfcraft') args.push('--root', temp);
+if (acceptance === 'lightcraft') args.push('--library', temp);
 const child = spawn(binary, args, { shell: false, stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true });
 let stdout = '';
 let stderr = '';
@@ -180,6 +181,32 @@ try {
         throw new Error('DeckCraft acceptance failed: exported PPTX is missing or does not have a ZIP/PPTX signature.');
       }
       acceptanceResult = { scenario: 'deckcraft-create-add-text-inspect-export-pptx', verified: true, outputFormat: 'pptx', outputInsideTemporaryDirectory: true, outputBytes: savedBytes.length };
+    } else if (acceptance === 'lightcraft') {
+      const inputPath = path.join(temp, 'creative-jess-source.bmp');
+      const bmp = Buffer.alloc(70);
+      bmp.write('BM', 0, 'ascii');
+      bmp.writeUInt32LE(70, 2);
+      bmp.writeUInt32LE(54, 10);
+      bmp.writeUInt32LE(40, 14);
+      bmp.writeInt32LE(2, 18);
+      bmp.writeInt32LE(2, 22);
+      bmp.writeUInt16LE(1, 26);
+      bmp.writeUInt16LE(24, 28);
+      bmp.writeUInt32LE(16, 34);
+      bmp.writeUInt32LE(2835, 38);
+      bmp.writeUInt32LE(2835, 42);
+      bmp.set([0, 0, 255, 0, 255, 0, 0, 0, 255, 255, 255, 255, 0, 0, 0, 0], 54);
+      await writeFile(inputPath, bmp);
+      await callTool('import', { paths: [inputPath], mode: 'add' });
+      const library = await callTool('query_photos', { limit: 20 });
+      if (!library.toLowerCase().includes('creative-jess-source.bmp')) throw new Error('LightCraft acceptance failed: imported BMP was not found in the photo catalog.');
+      await callTool('set_develop', { values: { 'light.exposure': 0.7 } });
+      const outputPath = path.join(temp, 'creative-jess-acceptance.png');
+      await callTool('export', { path: outputPath });
+      const savedBytes = await readFile(outputPath);
+      const pngSignature = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+      if (savedBytes.length < 64 || !pngSignature.every((byte, index) => savedBytes[index] === byte)) throw new Error('LightCraft acceptance failed: exported PNG signature or file size is invalid.');
+      acceptanceResult = { scenario: 'lightcraft-import-develop-export-png', verified: true, outputFormat: 'png', outputInsideTemporaryDirectory: true, outputBytes: savedBytes.length };
     } else if (acceptance === 'effectcraft') {
       const marker = 'CreativeJessEffectAcceptance' + Date.now();
       await callTool('open_project', { new: true });

@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - 'scripts/bootstrap-upstream.ps1'
+      - 'scripts/start-companion.ps1'
       - '.github/workflows/powershell-check.yml'
   push:
     branches:
@@ -20,15 +21,18 @@ jobs:
       - name: Parse bootstrap script
         shell: pwsh
         run: |
-          $tokens = $null
-          $errors = $null
-          [System.Management.Automation.Language.Parser]::ParseFile(
-            (Join-Path $PWD 'scripts/bootstrap-upstream.ps1'),
-            [ref]$tokens,
-            [ref]$errors
-          ) | Out-Null
-          if ($errors.Count -gt 0) {
-            $errors | Format-List
-            exit 1
+          foreach ($scriptPath in @('scripts/bootstrap-upstream.ps1', 'scripts/start-companion.ps1')) {
+            $tokens = $null
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile(
+              (Join-Path $PWD $scriptPath),
+              [ref]$tokens,
+              [ref]$errors
+            ) | Out-Null
+            if ($errors.Count -gt 0) {
+              Write-Error "PowerShell syntax errors in $scriptPath"
+              $errors | Format-List
+              exit 1
+            }
+            Write-Host "PowerShell syntax is valid: $scriptPath"
           }
-          Write-Host 'PowerShell syntax is valid.'

@@ -180,6 +180,26 @@ try {
         throw new Error('DeckCraft acceptance failed: exported PPTX is missing or does not have a ZIP/PPTX signature.');
       }
       acceptanceResult = { scenario: 'deckcraft-create-add-text-inspect-export-pptx', verified: true, outputFormat: 'pptx', outputInsideTemporaryDirectory: true, outputBytes: savedBytes.length };
+    } else if (acceptance === 'soundcraft') {
+      const marker = 'CreativeJessSoundAcceptance' + Date.now();
+      await callTool('new_session', { name: marker, sample_rate: 48000, template: 'blank' });
+      const inspection = await callTool('inspect_session', { detail: 'summary' });
+      if (!inspection.includes(marker)) throw new Error('SoundCraft acceptance failed: new session name was not returned by inspect_session.');
+      const outputPath = path.join(temp, 'creative-jess-acceptance.scraft');
+      await callTool('save_session', { path: outputPath });
+      const savedBytes = await readFile(outputPath);
+      if (savedBytes.length < 16) throw new Error('SoundCraft acceptance failed: saved session is missing or unexpectedly small.');
+      acceptanceResult = { scenario: 'soundcraft-create-inspect-save-session', verified: true, outputFormat: 'scraft', outputInsideTemporaryDirectory: true, outputBytes: savedBytes.length };
+    } else if (acceptance === 'cadcraft') {
+      await callTool('new_drawing', { metric: true });
+      await callTool('execute', { command: 'circle', params: { center: [0, 0], radius: 5 } });
+      const inspection = await callTool('inspect_drawing', { entities: true, limit: 50 });
+      if (!inspection.toLowerCase().includes('circle')) throw new Error('CADCraft acceptance failed: created circle was not found in drawing inspection.');
+      const outputPath = path.join(temp, 'creative-jess-acceptance.dxf');
+      await callTool('save', { path: outputPath });
+      const savedText = await readFile(outputPath, 'utf8');
+      if (savedText.length < 100 || !savedText.includes('SECTION')) throw new Error('CADCraft acceptance failed: exported DXF is missing expected structure.');
+      acceptanceResult = { scenario: 'cadcraft-create-circle-inspect-save-dxf', verified: true, outputFormat: 'dxf', outputInsideTemporaryDirectory: true, outputCharacters: savedText.length };
     } else {
       throw new Error('Unsupported acceptance scenario: ' + acceptance);
     }

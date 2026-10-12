@@ -71,6 +71,7 @@ export const ProjectBrowser: React.FC<ProjectBrowserProps> = ({
   onSelectProject,
   onCreateProject,
   onAddAsset,
+  onReplaceAsset,
   onOpenApp,
 }) => {
   const [isCreating, setIsCreating] = useState(false);
